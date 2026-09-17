@@ -20,7 +20,7 @@ The SIP and RTP scripts need a k6 binary built with the
 [xk6-sip-media](https://github.com/srthorat/xk6-sip-media) extension, which the
 image provides on top of the official browser-enabled k6 image. Each push
 publishes it to [Docker Hub](https://hub.docker.com/r/wazoplatform/wazo-load-k6)
-as `wazoplatform/wazo-load-k6:latest`:
+as `wazoplatform/wazo-load-k6:latest`, for amd64 and arm64:
 
 ```sh
 docker run --rm wazoplatform/wazo-load-k6 run /scripts/auth-token.js
