@@ -14,6 +14,19 @@ k6 run scripts/auth-token.js
 
 `VUS` and `DURATION` override the default load.
 
+## Docker image
+
+The SIP and RTP scripts need a k6 binary built with the
+[xk6-sip-media](https://github.com/srthorat/xk6-sip-media) extension, which the
+image provides on top of the official browser-enabled k6 image:
+
+```sh
+docker build -t wazo-load-k6 .
+docker run --rm -v "$PWD/scripts:/scripts" wazo-load-k6 run /scripts/auth-token.js
+```
+
+`K6_VERSION` and `XK6_SIP_MEDIA_VERSION` build args pin what goes in.
+
 ## Conventions
 
 Naming and structure follow the
