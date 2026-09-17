@@ -27,6 +27,10 @@ docker run --rm -v "$PWD/scripts:/scripts" wazo-load-k6 run /scripts/auth-token.
 
 `K6_VERSION` and `XK6_SIP_MEDIA_VERSION` build args pin what goes in.
 
+`patches/` holds the fixes applied to the extension before building. Each one
+is a `git format-patch` export of a single commit, to submit upstream as-is and
+to delete here once merged.
+
 ## Conventions
 
 Naming and structure follow the

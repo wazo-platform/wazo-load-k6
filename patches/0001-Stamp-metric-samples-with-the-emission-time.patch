@@ -1,0 +1,36 @@
+From 973ab53c5eb815a90a0b7088acac74ba6dd2028f Mon Sep 17 00:00:00 2001
+From: Francois Blackburn <fblackburn@wazo.io>
+Date: Thu, 17 Sep 2026 12:02:47 -0400
+Subject: [PATCH 1/2] Stamp metric samples with the emission time
+
+Why: makeSample() left Sample.Time at the zero time.Time. The Prometheus
+remote-write output uses the sample time as the series timestamp, so every
+sip_*/rtp_*/mos_* series was emitted at Unix ts of year 1
+(-62135596800000 ms). Prometheus rejects it as "out of bounds" (400) and
+drops the whole remote-write batch, not just the offending series, so a run
+with -o experimental-prometheus-rw reported no SIP metric at all.
+---
+ k6ext/metrics.go | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/k6ext/metrics.go b/k6ext/metrics.go
+index 18a6347..30356f5 100644
+--- a/k6ext/metrics.go
++++ b/k6ext/metrics.go
+@@ -1,6 +1,8 @@
+ package k6ext
+ 
+ import (
++	"time"
++
+ 	"go.k6.io/k6/metrics"
+ )
+ 
+@@ -108,6 +110,7 @@ func makeSample(m *metrics.Metric, tags *metrics.TagSet, value float64) metrics.
+ 			Metric: m,
+ 			Tags:   tags,
+ 		},
++		Time:  time.Now(),
+ 		Value: value,
+ 	}
+ }
