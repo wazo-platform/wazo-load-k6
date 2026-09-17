@@ -3,7 +3,7 @@
 # The extension needs CGO (the Opus codec links libopus), so it cannot be built
 # with the stock grafana/xk6 image. Building in golang:alpine makes the binary
 # musl-linked, so it runs on the alpine-based grafana/k6 image.
-ARG K6_VERSION=1.8.1
+ARG K6_VERSION=2.2.0
 ARG XK6_SIP_MEDIA_VERSION=v1.2.1
 
 FROM golang:1.27-alpine AS builder
@@ -14,9 +14,11 @@ RUN go install go.k6.io/xk6/cmd/xk6@v1.4.13
 # patches/0001 is srthorat/xk6-sip-media#11; drop it once merged and released
 # in a new XK6_SIP_MEDIA_VERSION
 COPY patches/ /patches/
+# go.sum stays out of the patches: tidy resolves it after the k6 module bump
 RUN git clone --depth 1 --branch "${XK6_SIP_MEDIA_VERSION}" \
         https://github.com/srthorat/xk6-sip-media /src/xk6-sip-media \
-    && git -C /src/xk6-sip-media apply /patches/*.patch
+    && git -C /src/xk6-sip-media apply /patches/*.patch \
+    && go -C /src/xk6-sip-media mod tidy
 WORKDIR /build
 RUN K6_VERSION="v${K6_VERSION}" xk6 build --cgo \
     --with "github.com/srthorat/xk6-sip-media=/src/xk6-sip-media" \
