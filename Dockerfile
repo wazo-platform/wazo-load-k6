@@ -24,4 +24,5 @@ FROM grafana/k6:${K6_VERSION}-with-browser
 USER root
 RUN apk add --no-cache opus opusfile
 COPY --from=builder /build/k6 /usr/bin/k6
+COPY scripts/ /scripts/
 USER 12345

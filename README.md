@@ -22,6 +22,13 @@ image provides on top of the official browser-enabled k6 image:
 
 ```sh
 docker build -t wazo-load-k6 .
+docker run --rm wazo-load-k6 run /scripts/auth-token.js
+```
+
+`scripts/` is baked into the image at `/scripts`. Mount over it to run a
+script that is not in the image yet:
+
+```sh
 docker run --rm -v "$PWD/scripts:/scripts" wazo-load-k6 run /scripts/auth-token.js
 ```
 
