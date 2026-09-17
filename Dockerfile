@@ -11,6 +11,8 @@ ARG K6_VERSION
 ARG XK6_SIP_MEDIA_VERSION
 RUN apk add --no-cache gcc musl-dev pkgconfig opus-dev opusfile-dev git
 RUN go install go.k6.io/xk6/cmd/xk6@v1.4.13
+# patches/0001 is srthorat/xk6-sip-media#11; drop it once merged and released
+# in a new XK6_SIP_MEDIA_VERSION
 COPY patches/ /patches/
 RUN git clone --depth 1 --branch "${XK6_SIP_MEDIA_VERSION}" \
         https://github.com/srthorat/xk6-sip-media /src/xk6-sip-media \
