@@ -1,3 +1,6 @@
+// Copyright 2026 The Wazo Authors  (see the AUTHORS file)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import encoding from 'k6/encoding';
 import http from 'k6/http';
 import { check } from 'k6';
