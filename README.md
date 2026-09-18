@@ -26,6 +26,47 @@ Optional:
 | `VUS` | `1` | virtual users |
 | `DURATION` | `10s` | how long the run lasts |
 
+## 1:1 call
+
+`scripts/sip-call.js` runs both ends of one call in a single test run: a
+`callee` scenario registers and answers, a `caller` scenario registers, dials
+`CALLEE_EXTEN` and streams audio until it hangs up.
+
+```sh
+docker run --rm --network host \
+  --env WAZO_ENGINE=engine.example.com \
+  --env CALLER_USERNAME=10000 --env CALLER_PASSWORD=10000 \
+  --env CALLEE_USERNAME=10001 --env CALLEE_PASSWORD=10001 \
+  --env CALLEE_EXTEN=10001 \
+  wazoplatform/wazo-load-k6 run /scripts/sip-call.js
+```
+
+Required:
+
+| Variable | Meaning |
+| --- | --- |
+| `WAZO_ENGINE` | engine host |
+| `CALLER_USERNAME`, `CALLER_PASSWORD` | the line placing the call |
+| `CALLEE_USERNAME`, `CALLEE_PASSWORD` | the line answering it |
+| `CALLEE_EXTEN` | what the caller dials |
+
+Optional:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `CALL_SECONDS` | `10` | how long the caller stays on the call |
+| `LISTEN_PORT` | `5070` | port the callee answers on |
+| `AUDIO_FILE` | `/audio/tone-3s.wav` | what both ends stream |
+| `SIP_LOCAL_IP` | auto-detected | address advertised in Via, Contact and SDP |
+
+The example values are what
+[wazo-load-tools](https://github.com/wazo-platform/wazo-load-tools) provisions:
+users numbered from `10000`, each with its extension as SIP username and
+secret.
+
+Set `SIP_LOCAL_IP` when the engine is reached over a VPN — auto-detection
+picks the default-route address, which the engine cannot answer back on.
+
 ## Docker image
 
 The SIP and RTP scripts need a k6 binary built with the
