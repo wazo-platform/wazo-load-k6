@@ -60,6 +60,14 @@ Naming and structure follow the
 Everything in `scripts/` is runnable; shared code is a module imported by a
 script and lives outside `scripts/`.
 
+Scripts take their parameters from
+[environment variables](https://grafana.com/docs/k6/latest/using-k6/environment-variables/),
+read through `__ENV` and passed with `k6 run -e NAME=value` or
+`docker run --env NAME=value` — k6 hands a script no arguments of its own. A
+parameter either has a default or makes the script throw when it is missing.
+Names stay unprefixed: a `K6_`-prefixed variable configures k6 itself and
+overrides the script, so `K6_VUS` bypasses `VUS` rather than feeding it.
+
 ## License
 
 GPL-3.0-or-later, see [LICENSE](LICENSE).
