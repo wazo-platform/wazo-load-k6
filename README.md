@@ -12,7 +12,19 @@ WAZO_PASSWORD=secret \
 k6 run scripts/auth-token.js
 ```
 
-`VUS` and `DURATION` override the default load.
+Required:
+
+| Variable | Meaning |
+| --- | --- |
+| `WAZO_ENGINE` | engine host |
+| `WAZO_USERNAME`, `WAZO_PASSWORD` | user the token is minted for |
+
+Optional:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `VUS` | `1` | virtual users |
+| `DURATION` | `10s` | how long the run lasts |
 
 ## Docker image
 
