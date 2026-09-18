@@ -32,7 +32,11 @@ const audioFile = __ENV.AUDIO_FILE || '/audio/tone-3s.wav';
 const localIP = __ENV.SIP_LOCAL_IP || '';
 
 const callerStartSeconds = 2;
-const listenSeconds = callerStartSeconds + callSeconds + 5;
+const teardownSeconds = 5;
+// the extension gives up on an unanswered INVITE only after 30s
+const inviteTimeoutSeconds = 30;
+const callerSeconds = inviteTimeoutSeconds + callSeconds + teardownSeconds;
+const listenSeconds = callerStartSeconds + callerSeconds;
 
 export const options = {
   scenarios: {
@@ -49,7 +53,7 @@ export const options = {
       vus: 1,
       iterations: 1,
       startTime: `${callerStartSeconds}s`,
-      maxDuration: `${callSeconds + 30}s`,
+      maxDuration: `${callerSeconds}s`,
     },
   },
   thresholds: {
