@@ -44,7 +44,7 @@ ssh -fN -L 9486:127.0.0.1:9486 root@engine.example.com
 docker run --rm --network host \
   -v "$PWD/wazo-load-env:/var/lib/wazo-load-env:ro" \
   --env WAZO_ENGINE=engine.example.com \
-  --env WAZO_USERNAME=root --env WAZO_PASSWORD=secret \
+  --env WAZO_ADMIN_USERNAME=root --env WAZO_ADMIN_PASSWORD=secret \
   --env CONFD_URL=http://127.0.0.1:9486 \
   --env MEMBER_COUNTS=100,500,1000,2000,all \
   wazoplatform/wazo-load-k6 run /scripts/group-members.js
@@ -54,10 +54,10 @@ The summary gives one `group_members_update{members:<count>}` line per size.
 
 Required:
 
-| Variable                         | Meaning                                     |
-| -------------------------------- | ------------------------------------------- |
-| `WAZO_ENGINE`                    | engine host                                 |
-| `WAZO_USERNAME`, `WAZO_PASSWORD` | user allowed to create groups in the tenant |
+| Variable                                     | Meaning                                     |
+| -------------------------------------------- | ------------------------------------------- |
+| `WAZO_ENGINE`                                | engine host                                 |
+| `WAZO_ADMIN_USERNAME`, `WAZO_ADMIN_PASSWORD` | user allowed to create groups in the tenant |
 
 Optional:
 

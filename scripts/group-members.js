@@ -8,10 +8,12 @@ import { check } from "k6";
 import { Trend } from "k6/metrics";
 
 const engine = __ENV.WAZO_ENGINE;
-const username = __ENV.WAZO_USERNAME;
-const password = __ENV.WAZO_PASSWORD;
+const username = __ENV.WAZO_ADMIN_USERNAME;
+const password = __ENV.WAZO_ADMIN_PASSWORD;
 if (!engine || !username || !password) {
-  throw new Error("WAZO_ENGINE, WAZO_USERNAME and WAZO_PASSWORD are required");
+  throw new Error(
+    "WAZO_ENGINE, WAZO_ADMIN_USERNAME and WAZO_ADMIN_PASSWORD are required",
+  );
 }
 
 // nginx gives up on /api/confd/ after 180s while confd keeps working
