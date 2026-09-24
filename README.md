@@ -112,10 +112,11 @@ must be free, and the deployment opens `5070`-`15069`, so a single process
 tops out at 10000 members. The script refuses to start past it.
 
 A run outlasts `RUN_SECONDS`. Calls already up when the rate stops are left
-to finish, and k6 cannot interrupt one in progress, so the run drains for up
-to ten times `TALK_SECONDS` afterwards and the members stay registered that
-long. Keep `RUN_SECONDS` well above `TALK_SECONDS` so the drain is a small
-part of the run.
+to finish, and k6 cannot interrupt one in progress, so the members stay
+registered until the last of them hangs up, which is bounded by ten times
+`TALK_SECONDS` and usually far shorter — talk times are exponential, so that
+bound covers a tail the run rarely reaches. Keep `RUN_SECONDS` well above
+`TALK_SECONDS` so the drain is a small part of the run.
 
 ## Docker image
 

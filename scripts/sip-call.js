@@ -77,9 +77,10 @@ if (listenPortTop > listenPortMax) {
   );
 }
 
-// k6 cannot interrupt a call in progress, so the run drains for as long as
-// the longest one may last
-const memberSeconds = warmupSeconds + runSeconds + memberCallCapSeconds;
+const callerWindowSeconds = warmupSeconds + runSeconds;
+// k6 cannot interrupt a call in progress, so the drain is bounded by the
+// longest one that may still be up
+const memberSeconds = callerWindowSeconds + memberCallCapSeconds;
 
 export const options = {
   scenarios: {
@@ -88,7 +89,7 @@ export const options = {
       exec: "member",
       vus: members,
       iterations: 1,
-      // room past the sleep for stop() to unregister
+      // room past the drain for stop() to unregister
       maxDuration: `${memberSeconds + 10}s`,
     },
     caller: {
@@ -138,8 +139,22 @@ export function member() {
     audio: { file: audioFile, codec: "PCMU" },
   });
 
-  sleep(memberSeconds);
+  waitForCallsToDrain();
   uas.stop();
+}
+
+// no new call can arrive past the caller window, so an idle caller pool from
+// then on means the last one has hung up
+function waitForCallsToDrain() {
+  while (exec.instance.currentTestRunDuration < memberSeconds * 1000) {
+    if (
+      exec.instance.currentTestRunDuration > callerWindowSeconds * 1000 &&
+      exec.instance.vusActive <= members
+    ) {
+      return;
+    }
+    sleep(1);
+  }
 }
 
 export function caller() {
