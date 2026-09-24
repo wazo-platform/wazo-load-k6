@@ -40,6 +40,11 @@ const warmupSeconds = 10;
 // PCMU at 20ms ptime, less a fifth for setup and teardown inside the window
 const minPacketsPerSecond = 40;
 const minReceivedToSentRatio = 0.9;
+const maxLossRatio = 0.01;
+// PCMU tops out near 4.4, and the generator's own network costs some of that
+const minMos = 4.0;
+// past this a 20ms jitter buffer starts discarding
+const maxJitterMs = 30;
 // a caller can vanish without ever sending BYE
 const memberCallCapSeconds = Math.ceil(10 * talkSeconds);
 
@@ -103,6 +108,9 @@ export const options = {
     sip_register_success: [`count>=${members}`],
     // a proportion, not a count: one rejection should not fail a long run
     checks: ["rate>0.99"],
+    // likewise a percentile rather than min or max, for the trends
+    mos_score: [`p(5)>${minMos}`],
+    rtp_jitter_ms: [`p(95)<${maxJitterMs}`],
   },
 };
 
@@ -152,6 +160,10 @@ export function caller() {
     "audio flowed both ways": (r) =>
       r.received >= minReceivedToSentRatio * r.sent,
     "media ran the whole call": (r) => r.sent >= minPacketsPerSecond * seconds,
+    "packet loss stayed low": (r) =>
+      r.lost / (r.received + r.lost) < maxLossRatio,
+    "MOS stayed good": (r) => r.mos >= minMos,
+    "jitter stayed low": (r) => r.jitter < maxJitterMs,
   });
   if (!result.success) {
     console.error(
