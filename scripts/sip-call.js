@@ -37,6 +37,9 @@ const listenPortBase = 5070;
 const listenPortMax = 15069;
 const registerExpires = 120;
 const warmupSeconds = 10;
+// PCMU at 20ms ptime, less a fifth for setup and teardown inside the window
+const minPacketsPerSecond = 40;
+const minReceivedToSentRatio = 0.9;
 // a caller can vanish without ever sending BYE
 const memberCallCapSeconds = Math.ceil(10 * talkSeconds);
 
@@ -100,7 +103,6 @@ export const options = {
     sip_register_success: [`count>=${members}`],
     // a proportion, not a count: one rejection should not fail a long run
     checks: ["rate>0.99"],
-    rtp_packets_received: ["count>0"],
   },
 };
 
@@ -133,12 +135,13 @@ export function member() {
 }
 
 export function caller() {
+  const seconds = drawTalkSeconds();
   const result = sip.call({
     target: `sip:${calleeExten}@${engine}`,
     aor: `sip:${callerUsername}@${engine}`,
     username: callerUsername,
     password: callerPassword,
-    duration: talkDuration(),
+    duration: `${seconds.toFixed(1)}s`,
     localIP: localIP,
     audio: { file: audioFile, codec: "PCMU" },
     rtcp: true,
@@ -146,7 +149,9 @@ export function caller() {
 
   check(result, {
     "call answered": (r) => r.success === true,
-    "RTP received from the member": (r) => r.received > 0,
+    "audio flowed both ways": (r) =>
+      r.received >= minReceivedToSentRatio * r.sent,
+    "media ran the whole call": (r) => r.sent >= minPacketsPerSecond * seconds,
   });
   if (!result.success) {
     console.error(
@@ -155,8 +160,8 @@ export function caller() {
   }
 }
 
-function talkDuration() {
+function drawTalkSeconds() {
   const sample = -talkSeconds * Math.log(1 - Math.random());
   // a sub-second call would be torn down inside its own setup
-  return `${Math.max(1, sample).toFixed(1)}s`;
+  return Math.max(1, sample);
 }
