@@ -47,6 +47,7 @@ const minMos = 4.0;
 const maxJitterMs = 30;
 // a caller can vanish without ever sending BYE
 const memberCallCapSeconds = Math.ceil(10 * talkSeconds);
+const callSetupSeconds = 5;
 
 // k6 takes a whole-number arrival rate, so fractional rates go per minute
 const ratePerMinute = Math.round(callRate * 60);
@@ -189,6 +190,8 @@ export function caller() {
 
 function drawTalkSeconds() {
   const sample = -talkSeconds * Math.log(1 - Math.random());
+  // the member hangs up at its cap, counted from before the call is answered
+  const longest = memberCallCapSeconds - callSetupSeconds;
   // a sub-second call would be torn down inside its own setup
-  return Math.max(1, sample);
+  return Math.max(1, Math.min(longest, sample));
 }

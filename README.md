@@ -80,8 +80,9 @@ picks the default-route address, which the engine cannot answer back on.
 `SIMULTANEOUS_CALLS` are two ways of saying the same thing, so give one or
 the other and the script derives the rest — passing both is an error. It
 sizes its VU allocation from the result and prints all three at startup.
-Talk times are drawn from an exponential distribution around the mean, so
-the calls in progress vary around that figure rather than sitting on it.
+Talk times are drawn from an exponential distribution around the mean,
+capped just under ten times it, so the calls in progress vary around that
+figure rather than sitting on it.
 
 k6 takes a whole number of calls per time unit, so a fractional `CALL_RATE`
 is offered per minute: `CALL_RATE=0.2` runs as 12 calls a minute, which is
