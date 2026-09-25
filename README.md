@@ -38,6 +38,9 @@ its threshold:
 - `confd-users-import`: imports 100 users through wazo-confd
 - `dird-personal-import`: imports 1000 personal contacts through wazo-dird as
   the first imported user, once `confd-users-import` is over
+- `dird-lookup` and `dird-reverse`: look up names and reverse look up numbers
+  from the imported contacts and the users on the stack, as the first imported
+  user, once `dird-personal-import` is over
 
 It creates its own contexts for the users' extensions (6000-6099) and cleans
 nothing up, so it expects a fresh stack: a second run fails on duplicate
