@@ -14,17 +14,17 @@ k6 run scripts/auth-token.js
 
 Required:
 
-| Variable | Meaning |
-| --- | --- |
-| `WAZO_ENGINE` | engine host |
+| Variable                         | Meaning                      |
+| -------------------------------- | ---------------------------- |
+| `WAZO_ENGINE`                    | engine host                  |
 | `WAZO_USERNAME`, `WAZO_PASSWORD` | user the token is minted for |
 
 Optional:
 
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `VUS` | `1` | virtual users |
-| `DURATION` | `10s` | how long the run lasts |
+| Variable   | Default | Meaning                |
+| ---------- | ------- | ---------------------- |
+| `VUS`      | `1`     | virtual users          |
+| `DURATION` | `10s`   | how long the run lasts |
 
 ## Docker image
 
@@ -79,6 +79,16 @@ read through `__ENV` and passed with `k6 run -e NAME=value` or
 parameter either has a default or makes the script throw when it is missing.
 Names stay unprefixed: a `K6_`-prefixed variable configures k6 itself and
 overrides the script, so `K6_VUS` bypasses `VUS` rather than feeding it.
+
+## Lint
+
+The repository is checked with [ESLint](https://eslint.org/docs/latest/) and
+[Prettier](https://prettier.io/docs/), run through
+[pre-commit](https://pre-commit.com/), locally and by Zuul on every change:
+
+```sh
+tox -e linters
+```
 
 ## License
 
