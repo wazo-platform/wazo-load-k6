@@ -28,11 +28,9 @@ Optional:
 
 ## Call load
 
-`scripts/sip-call.js` offers a call rate at a group or queue and answers it
-with a pool of registered members, in one test run: a `members` scenario
-registers `MEMBERS` accounts and answers whatever arrives, and a `caller`
-scenario dials `CALLEE_EXTEN` at `CALL_RATE`, streaming audio for a talk
-time drawn around `TALK_SECONDS`.
+`scripts/sip-call.js` dials a group or queue at `CALL_RATE` and answers with
+`MEMBERS` registered accounts; each call streams audio for a talk time drawn
+around `TALK_SECONDS`.
 
 ```sh
 docker run --rm --network host \
@@ -42,8 +40,8 @@ docker run --rm --network host \
   wazoplatform/wazo-load-k6 run /scripts/sip-call.js
 ```
 
-With nothing else set that offers 30 calls a minute at a one-minute talk
-time — thirty concurrent calls, answered by fifty members, for five minutes.
+By default: 30 calls a minute, one-minute talk time, 50 members, five
+minutes.
 
 Required:
 
@@ -66,13 +64,11 @@ Optional:
 | `AUDIO_FILE`         | `/audio/tone-3s.wav` | what both ends stream                      |
 | `SIP_LOCAL_IP`       | auto-detected        | address advertised in Via, Contact and SDP |
 
-The example values are what
-[wazo-load-tools](https://github.com/wazo-platform/wazo-load-tools) provisions:
-a `loadtester` trunk, a `callees` group at extension `20000`, and users
-numbered from `10000`, each with its extension as SIP username and secret.
-
-Set `SIP_LOCAL_IP` when the engine is reached over a VPN — auto-detection
-picks the default-route address, which the engine cannot answer back on.
+The example values match what
+[wazo-load-tools](https://github.com/wazo-platform/wazo-load-tools)
+provisions; each member uses its account number as SIP username and secret.
+Set `SIP_LOCAL_IP` over a VPN: auto-detection picks the
+default-route address, which the engine cannot answer back on.
 
 ### Rate, talk time and concurrency are one relation
 
@@ -90,34 +86,18 @@ what the startup line reports.
 
 ### What bounds a run
 
-- **`MEMBERS` is a floor, not a preference.** A member already on a call is
-  not rung again, so the pool has to carry the concurrency. The script
-  refuses to start below it, naming the number it needs. Sizing the pool
-  only for the mean leaves the peaks to be rejected, which shows up as
-  failed calls.
-- **The destination caps concurrency.** wazo-load-tools creates the
-  `callees` group with `max_calls: 1000`, so more than that is rejected by
-  the stack no matter what is offered; a queue carries its own limit.
-- **The caller is a trunk**, identified by IP, so it is not subject to the
-  per-user simultaneous-call limit and needs no registration.
-- **One process does not hold a large pool.** Each member costs a k6 VU and
-  a UDP socket, and each active call costs another socket and ~100
-  packets/s, so expect an order of a thousand concurrent calls per
-  instance. Raise the container's limit with `--ulimit nofile=65536` once
-  the pool passes a few hundred. Splitting a run across processes means
-  giving each one its own slice of `MEMBER_BASE`, which the script does not
-  do for you yet.
-
-Members listen on ports `5070` through `5070 + MEMBERS - 1`; those ports
-must be free, and the deployment opens `5070`-`15069`, so a single process
-tops out at 10000 members. The script refuses to start past it.
-
-A run outlasts `RUN_SECONDS`. Calls already up when the rate stops are left
-to finish, and k6 cannot interrupt one in progress, so the members stay
-registered until the last of them hangs up, which is bounded by ten times
-`TALK_SECONDS` and usually far shorter — talk times are exponential, so that
-bound covers a tail the run rarely reaches. Keep `RUN_SECONDS` well above
-`TALK_SECONDS` so the drain is a small part of the run.
+- **`MEMBERS` must carry the peak.** A member on a call is not rung again,
+  so the script refuses to start below the mean concurrency, and a pool
+  sized only for the mean rejects the peaks.
+- **The destination caps concurrency**: the `callees` group allows 1000
+  calls, a queue has its own limit.
+- **One process holds about a thousand concurrent calls.** Pass
+  `--ulimit nofile=65536` past a few hundred members. Members listen from
+  port `5070` and the deployment opens up to `15069`, so a process tops out
+  at 10000 members.
+- **A run outlasts `RUN_SECONDS`**: members stay until the last call hangs
+  up, at most ten times `TALK_SECONDS` later. Keep `RUN_SECONDS` well above
+  `TALK_SECONDS`.
 
 ## Docker image
 
