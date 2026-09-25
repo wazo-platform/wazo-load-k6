@@ -1,0 +1,30 @@
+# patches/ are git format-patch exports; git apply needs them byte-exact
+exclude: ^patches/
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+  - repo: https://github.com/wazo-platform/wazo-git-hooks
+    rev: 1.1.5
+    hooks:
+      - id: wazo-copyright-check
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint
+        language: node
+        language_version: 22.20.0
+        entry: eslint
+        types: [javascript]
+        additional_dependencies: ["eslint@10.11.0", "@eslint/js@10.0.1"]
+      - id: prettier
+        name: prettier
+        language: node
+        language_version: 22.20.0
+        entry: prettier --write --ignore-unknown
+        types: [text]
+        additional_dependencies: ["prettier@3.9.9"]
