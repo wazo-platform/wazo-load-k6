@@ -5,19 +5,23 @@ SIP and RTP, browser-driven WebRTC, and mobile push wake-up.
 
 ## Usage
 
+### auth-token.js
+
+Creates admin tokens in a loop.
+
 ```sh
 WAZO_ENGINE=engine.example.com \
-WAZO_USERNAME=alice \
-WAZO_PASSWORD=secret \
+WAZO_ADMIN_USERNAME=root \
+WAZO_ADMIN_PASSWORD=secret \
 k6 run scripts/auth-token.js
 ```
 
 Required:
 
-| Variable                         | Meaning                      |
-| -------------------------------- | ---------------------------- |
-| `WAZO_ENGINE`                    | engine host                  |
-| `WAZO_USERNAME`, `WAZO_PASSWORD` | user the token is minted for |
+| Variable                                     | Meaning                        |
+| -------------------------------------------- | ------------------------------ |
+| `WAZO_ENGINE`                                | engine host                    |
+| `WAZO_ADMIN_USERNAME`, `WAZO_ADMIN_PASSWORD` | admin the token is created for |
 
 Optional:
 
@@ -25,6 +29,43 @@ Optional:
 | ---------- | ------- | ---------------------- |
 | `VUS`      | `1`     | virtual users          |
 | `DURATION` | `10s`   | how long the run lasts |
+
+### benchmarks.js
+
+Short benchmarks that fail the run when slower than their threshold.
+
+Its setup imports the data the scenarios search, and each import is a
+benchmark of its own:
+
+- 100 users through wazo-confd
+- then 1000 personal contacts through wazo-dird, as the first imported user
+
+Once a few warm-up requests have filled the dird caches, the scenarios run one
+after the other, as the first imported user, on the imported contacts and the
+users on the stack:
+
+- `dird-lookup`: looks up names
+- `dird-reverse`: reverse looks up numbers, once `dird-lookup` is over
+
+It creates its own contexts for the users' extensions (6000-6099) and cleans
+nothing up, so it expects a fresh stack: a second run fails on duplicate
+extensions.
+
+```sh
+WAZO_ENGINE=engine.example.com \
+WAZO_ADMIN_USERNAME=root \
+WAZO_ADMIN_PASSWORD=secret \
+WAZO_TENANT=9d283e05-6b2f-46b4-bca5-1c2558dbcb53 \
+k6 run scripts/benchmarks.js
+```
+
+Required:
+
+| Variable                                     | Meaning                                                                                                                                     |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WAZO_ENGINE`                                | engine host                                                                                                                                 |
+| `WAZO_ADMIN_USERNAME`, `WAZO_ADMIN_PASSWORD` | user allowed `confd.contexts.create`, `confd.users.import.create` and `confd.users.read` in `WAZO_TENANT`, and `dird.directories.reverse.#` |
+| `WAZO_TENANT`                                | UUID of the tenant the users are imported in                                                                                                |
 
 ## Docker image
 
@@ -52,6 +93,9 @@ script that is not in the image yet:
 docker run --rm -v "$PWD/scripts:/scripts" wazo-load-k6 run /scripts/auth-token.js
 ```
 
+The data files the scripts read from `assets/` are baked in at `/assets` the
+same way.
+
 `K6_VERSION` and `XK6_SIP_MEDIA_VERSION` build args pin what goes in.
 
 `patches/` holds the fixes applied to the extension before building. Each one
@@ -70,7 +114,8 @@ Naming and structure follow the
 - a **test run** is one execution of a script
 
 Everything in `scripts/` is runnable; shared code is a module imported by a
-script and lives outside `scripts/`.
+script and lives outside `scripts/`. Data files a script reads, such as CSV
+imports, live in `assets/`.
 
 Scripts take their parameters from
 [environment variables](https://grafana.com/docs/k6/latest/using-k6/environment-variables/),
