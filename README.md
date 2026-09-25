@@ -7,21 +7,21 @@ SIP and RTP, browser-driven WebRTC, and mobile push wake-up.
 
 ### auth-token.js
 
-Creates user tokens in a loop.
+Creates admin tokens in a loop.
 
 ```sh
 WAZO_ENGINE=engine.example.com \
-WAZO_USERNAME=alice \
-WAZO_PASSWORD=secret \
+WAZO_ADMIN_USERNAME=root \
+WAZO_ADMIN_PASSWORD=secret \
 k6 run scripts/auth-token.js
 ```
 
 Required:
 
-| Variable                         | Meaning                      |
-| -------------------------------- | ---------------------------- |
-| `WAZO_ENGINE`                    | engine host                  |
-| `WAZO_USERNAME`, `WAZO_PASSWORD` | user the token is minted for |
+| Variable                                     | Meaning                        |
+| -------------------------------------------- | ------------------------------ |
+| `WAZO_ENGINE`                                | engine host                    |
+| `WAZO_ADMIN_USERNAME`, `WAZO_ADMIN_PASSWORD` | admin the token is created for |
 
 Optional:
 
