@@ -128,6 +128,10 @@ Required by every benchmark:
 - **`dird-personal-import.js`** imports 1000 personal contacts from
   `assets/1000contacts.csv`, as a user it creates in wazo-auth. Needs
   `auth.users.create`.
+- **`dird-lookups.js`** looks up the stack users by last name, then reverse
+  looks up their extensions once the lookups are over, after a few warm-up
+  requests. Needs `confd.users.read`, `dird.directories.lookup.#` and
+  `dird.directories.reverse.#`.
 
 ## Docker image
 
