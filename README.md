@@ -125,6 +125,9 @@ Required by every benchmark:
 - **`confd-users-import.js`** imports 100 users from `assets/100entries.csv`,
   into contexts it creates for their extensions (6000-6099). Needs
   `confd.contexts.create` and `confd.users.import.create`.
+- **`dird-personal-import.js`** imports 1000 personal contacts from
+  `assets/1000contacts.csv`, as a user it creates in wazo-auth. Needs
+  `auth.users.create`.
 
 ## Docker image
 
