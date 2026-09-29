@@ -4,6 +4,7 @@
 import encoding from "k6/encoding";
 import http from "k6/http";
 import { check } from "k6";
+import { checkStackInvariants } from "../../modules/monitor-checks/stack-invariants.js";
 
 const engine = __ENV.WAZO_ENGINE;
 const username = __ENV.WAZO_ADMIN_USERNAME;
@@ -22,8 +23,13 @@ export const options = {
   insecureSkipTLSVerify: true,
   thresholds: {
     checks: ["rate==1.0"],
+    monitor_checks: ["rate==1.0"],
   },
 };
+
+export function setup() {
+  return { runStart: Date.now() };
+}
 
 export default function () {
   const body = JSON.stringify({ backend: "wazo_user", expiration: 60 });
@@ -36,4 +42,8 @@ export default function () {
   check(response, {
     "token created": (r) => r.status === 200 && r.json("data.token"),
   });
+}
+
+export function teardown({ runStart }) {
+  checkStackInvariants(runStart);
 }

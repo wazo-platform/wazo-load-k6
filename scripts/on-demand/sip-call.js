@@ -4,6 +4,11 @@
 import exec from "k6/execution";
 import sip from "k6/x/sip";
 import { check, sleep } from "k6";
+import {
+  checkMonitor,
+  stackMatcher,
+} from "../../modules/monitor-checks/check.js";
+import { checkStackInvariants } from "../../modules/monitor-checks/stack-invariants.js";
 
 const engine = __ENV.WAZO_ENGINE;
 const calleeExten = __ENV.CALLEE_EXTEN;
@@ -45,6 +50,8 @@ const maxLossRatio = 0.01;
 const minMos = 4.0;
 // past this a 20ms jitter buffer starts discarding
 const maxJitterMs = 30;
+// what an app waiting on the stack tolerates, calls in progress or not
+const maxServiceLatencySeconds = 1;
 // a caller can vanish without ever sending BYE
 const memberCallCapSeconds = Math.ceil(10 * talkSeconds);
 const callSetupSeconds = 5;
@@ -113,6 +120,7 @@ export const options = {
     // likewise a percentile rather than min or max, for the trends
     mos_score: [`p(5)>${minMos}`],
     rtp_jitter_ms: [`p(95)<${maxJitterMs}`],
+    monitor_checks: ["rate==1.0"],
   },
 };
 
@@ -121,6 +129,18 @@ export function setup() {
     `${ratePerMinute} calls/min at ${talkSeconds}s mean talk time:` +
       ` ${concurrency.toFixed(1)} concurrent calls expected,` +
       ` ${peakConcurrency} VUs allocated, ${members} members from ${memberBase}`,
+  );
+  return { runStart: Date.now() };
+}
+
+export function teardown({ runStart }) {
+  checkStackInvariants(runStart);
+  checkMonitor(
+    "service latency",
+    runStart,
+    (window) =>
+      `histogram_quantile(0.95, sum by (service, le) (increase(flask_http_request_duration_seconds_bucket{${stackMatcher()}}[${window}])))` +
+      ` > ${maxServiceLatencySeconds}`,
   );
 }
 

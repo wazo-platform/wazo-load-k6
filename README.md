@@ -133,6 +133,29 @@ Required by every benchmark:
   requests. Needs `confd.users.read`, `dird.directories.lookup.#` and
   `dird.directories.reverse.#`.
 
+## Monitor checks
+
+Thresholds judge what the generator sees. What only the monitoring shows is
+checked at the end of each script: `teardown()` queries the Prometheus that
+scrapes the stack over the script's own run, from the start of `setup()`,
+and a failed check fails the `monitor_checks` threshold. The checks first
+wait for every exporter of the stack to be scraped after the run, and fail
+when one is down.
+
+- **`modules/monitor-checks/stack-invariants.js`** holds what must hold on
+  any run, so every script calls it: no service or process restarted, no
+  OOM kill, server errors within bounds, no RabbitMQ queue losing its
+  consumers.
+- A check that only makes sense for one scenario lives in its script, which
+  calls `checkMonitor()` from `modules/monitor-checks/check.js`, as
+  `sip-call.js` does for the stack's latency per service.
+
+`MONITOR_CHECKS_PROMETHEUS_URL` points at that Prometheus; unset, the checks
+are skipped. Set, the run needs a `testid` tag (`k6 run --tag testid=<id>`), which the
+stack's series must carry as a `testid` label: the checks select the stack
+by it. Only a stack created for the run carries it, so a permanent stack
+cannot be checked.
+
 ## Docker image
 
 The SIP and RTP scripts need a k6 binary built with the
