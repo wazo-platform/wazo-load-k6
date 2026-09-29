@@ -27,5 +27,7 @@ USER root
 RUN apk add --no-cache opus opusfile
 COPY --from=builder /build/k6 /usr/bin/k6
 COPY scripts/ /scripts/
+COPY modules/ /modules/
+COPY assets/ /assets/
 COPY audio/ /audio/
 USER 12345

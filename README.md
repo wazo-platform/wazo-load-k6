@@ -7,17 +7,17 @@ SIP and RTP, browser-driven WebRTC, and mobile push wake-up.
 
 ```sh
 WAZO_ENGINE=engine.example.com \
-WAZO_USERNAME=alice \
-WAZO_PASSWORD=secret \
+WAZO_ADMIN_USERNAME=root \
+WAZO_ADMIN_PASSWORD=secret \
 k6 run scripts/auth-token.js
 ```
 
 Required:
 
-| Variable                         | Meaning                      |
-| -------------------------------- | ---------------------------- |
-| `WAZO_ENGINE`                    | engine host                  |
-| `WAZO_USERNAME`, `WAZO_PASSWORD` | user the token is minted for |
+| Variable                                     | Meaning                        |
+| -------------------------------------------- | ------------------------------ |
+| `WAZO_ENGINE`                                | engine host                    |
+| `WAZO_ADMIN_USERNAME`, `WAZO_ADMIN_PASSWORD` | admin the token is created for |
 
 Optional:
 
@@ -99,6 +99,40 @@ what the startup line reports.
   up, at most ten times `TALK_SECONDS` later. Keep `RUN_SECONDS` well above
   `TALK_SECONDS`.
 
+## Benchmarks
+
+Short benchmarks, a script each, that fail the run when slower than their
+thresholds. They measure against the users already on the stack and create
+what else they need in `WAZO_TENANT` as the admin, cleaning nothing up: run
+them on a fresh stack, since a second run fails on what the first created.
+
+```sh
+docker run --rm \
+  --env WAZO_ENGINE=engine.example.com \
+  --env WAZO_ADMIN_USERNAME=root --env WAZO_ADMIN_PASSWORD=secret \
+  --env WAZO_TENANT=9d283e05-6b2f-46b4-bca5-1c2558dbcb53 \
+  wazoplatform/wazo-load-k6 run /scripts/confd-users-import.js
+```
+
+Required by every benchmark:
+
+| Variable                                     | Meaning                                  |
+| -------------------------------------------- | ---------------------------------------- |
+| `WAZO_ENGINE`                                | engine host                              |
+| `WAZO_ADMIN_USERNAME`, `WAZO_ADMIN_PASSWORD` | admin with the ACLs listed per benchmark |
+| `WAZO_TENANT`                                | UUID of the tenant benchmarked           |
+
+- **`confd-users-import.js`** imports 100 users from `assets/100entries.csv`,
+  into contexts it creates for their extensions (6000-6099). Needs
+  `confd.contexts.create` and `confd.users.import.create`.
+- **`dird-personal-import.js`** imports 1000 personal contacts from
+  `assets/1000contacts.csv`, as a user it creates in wazo-auth. Needs
+  `auth.users.create`.
+- **`dird-lookups.js`** looks up the stack users by last name, then reverse
+  looks up their extensions once the lookups are over, after a few warm-up
+  requests. Needs `confd.users.read`, `dird.directories.lookup.#` and
+  `dird.directories.reverse.#`.
+
 ## Docker image
 
 The SIP and RTP scripts need a k6 binary built with the
@@ -125,6 +159,9 @@ script that is not in the image yet:
 docker run --rm -v "$PWD/scripts:/scripts" wazo-load-k6 run /scripts/auth-token.js
 ```
 
+`modules/` and `assets/`, which the scripts import and read, are baked in at
+`/modules` and `/assets` the same way.
+
 `K6_VERSION` and `XK6_SIP_MEDIA_VERSION` build args pin what goes in.
 
 `patches/` holds the fixes applied to the extension before building. Each one
@@ -143,7 +180,8 @@ Naming and structure follow the
 - a **test run** is one execution of a script
 
 Everything in `scripts/` is runnable; shared code is a module imported by a
-script and lives outside `scripts/`.
+script and lives in `modules/`. Data files a script reads, such as CSV
+imports, live in `assets/`.
 
 Scripts take their parameters from
 [environment variables](https://grafana.com/docs/k6/latest/using-k6/environment-variables/),
