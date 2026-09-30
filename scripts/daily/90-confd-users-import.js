@@ -3,7 +3,7 @@
 
 import http from "k6/http";
 import { check } from "k6";
-import { createToken } from "../modules/wazo.js";
+import { createToken } from "../../modules/wazo.js";
 
 const engine = __ENV.WAZO_ENGINE;
 const adminUsername = __ENV.WAZO_ADMIN_USERNAME;
@@ -15,7 +15,7 @@ if (!engine || !adminUsername || !adminPassword || !tenant) {
   );
 }
 
-const usersCsv = open("../assets/100entries.csv");
+const usersCsv = open("../../assets/100entries.csv");
 const confd = `https://${engine}/api/confd/1.1`;
 
 export const options = {

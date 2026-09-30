@@ -9,7 +9,7 @@ SIP and RTP, browser-driven WebRTC, and mobile push wake-up.
 WAZO_ENGINE=engine.example.com \
 WAZO_ADMIN_USERNAME=root \
 WAZO_ADMIN_PASSWORD=secret \
-k6 run scripts/auth-token.js
+k6 run scripts/on-demand/auth-token.js
 ```
 
 Required:
@@ -28,16 +28,16 @@ Optional:
 
 ## Call load
 
-`scripts/sip-call.js` dials a group or queue at `CALL_RATE` and answers with
-`MEMBERS` registered accounts; each call streams audio for a talk time drawn
-around `TALK_SECONDS`.
+`scripts/on-demand/sip-call.js` dials a group or queue at `CALL_RATE` and
+answers with `MEMBERS` registered accounts; each call streams audio for a
+talk time drawn around `TALK_SECONDS`.
 
 ```sh
 docker run --rm --network host \
   --env WAZO_ENGINE=engine.example.com \
   --env CALLER_USERNAME=loadtester --env CALLER_PASSWORD=loadtester \
   --env CALLEE_EXTEN=20000 \
-  wazoplatform/wazo-load-k6 run /scripts/sip-call.js
+  wazoplatform/wazo-load-k6 run /scripts/on-demand/sip-call.js
 ```
 
 By default: 30 calls a minute, one-minute talk time, 50 members, five
@@ -111,7 +111,7 @@ docker run --rm \
   --env WAZO_ENGINE=engine.example.com \
   --env WAZO_ADMIN_USERNAME=root --env WAZO_ADMIN_PASSWORD=secret \
   --env WAZO_TENANT=9d283e05-6b2f-46b4-bca5-1c2558dbcb53 \
-  wazoplatform/wazo-load-k6 run /scripts/confd-users-import.js
+  wazoplatform/wazo-load-k6 run /scripts/daily/90-confd-users-import.js
 ```
 
 Required by every benchmark:
@@ -122,13 +122,13 @@ Required by every benchmark:
 | `WAZO_ADMIN_USERNAME`, `WAZO_ADMIN_PASSWORD` | admin with the ACLs listed per benchmark |
 | `WAZO_TENANT`                                | UUID of the tenant benchmarked           |
 
-- **`confd-users-import.js`** imports 100 users from `assets/100entries.csv`,
+- **`90-confd-users-import.js`** imports 100 users from `assets/100entries.csv`,
   into contexts it creates for their extensions (6000-6099). Needs
   `confd.contexts.create` and `confd.users.import.create`.
-- **`dird-personal-import.js`** imports 1000 personal contacts from
+- **`10-dird-personal-import.js`** imports 1000 personal contacts from
   `assets/1000contacts.csv`, as a user it creates in wazo-auth. Needs
   `auth.users.create`.
-- **`dird-lookups.js`** looks up the stack users by last name, then reverse
+- **`10-dird-lookups.js`** looks up the stack users by last name, then reverse
   looks up their extensions once the lookups are over, after a few warm-up
   requests. Needs `confd.users.read`, `dird.directories.lookup.#` and
   `dird.directories.reverse.#`.
@@ -142,21 +142,21 @@ publishes it to [Docker Hub](https://hub.docker.com/r/wazoplatform/wazo-load-k6)
 as `wazoplatform/wazo-load-k6:latest`, for amd64 and arm64:
 
 ```sh
-docker run --rm wazoplatform/wazo-load-k6 run /scripts/auth-token.js
+docker run --rm wazoplatform/wazo-load-k6 run /scripts/on-demand/auth-token.js
 ```
 
 To build it yourself:
 
 ```sh
 docker build -t wazo-load-k6 .
-docker run --rm wazo-load-k6 run /scripts/auth-token.js
+docker run --rm wazo-load-k6 run /scripts/on-demand/auth-token.js
 ```
 
 `scripts/` is baked into the image at `/scripts`. Mount over it to run a
 script that is not in the image yet:
 
 ```sh
-docker run --rm -v "$PWD/scripts:/scripts" wazo-load-k6 run /scripts/auth-token.js
+docker run --rm -v "$PWD/scripts:/scripts" wazo-load-k6 run /scripts/on-demand/auth-token.js
 ```
 
 `modules/` and `assets/`, which the scripts import and read, are baked in at
@@ -182,6 +182,18 @@ Naming and structure follow the
 Everything in `scripts/` is runnable; shared code is a module imported by a
 script and lives in `modules/`. Data files a script reads, such as CSV
 imports, live in `assets/`.
+
+The directory a script sits in says when it runs:
+
+| Directory     | Runs                                    |
+| ------------- | --------------------------------------- |
+| `daily/`      | every night, on a fresh stack           |
+| `weekly/`     | every week, on a fresh stack            |
+| `continuous/` | without end, against a long-lived stack |
+| `on-demand/`  | only when started by hand               |
+
+A `continuous/` script never ends, so it has no thresholds: the monitoring
+is what flags it.
 
 Scripts take their parameters from
 [environment variables](https://grafana.com/docs/k6/latest/using-k6/environment-variables/),

@@ -3,7 +3,7 @@
 
 import http from "k6/http";
 import { check } from "k6";
-import { createToken } from "../modules/wazo.js";
+import { createToken } from "../../modules/wazo.js";
 
 const engine = __ENV.WAZO_ENGINE;
 const adminUsername = __ENV.WAZO_ADMIN_USERNAME;
@@ -15,7 +15,7 @@ if (!engine || !adminUsername || !adminPassword || !tenant) {
   );
 }
 
-const contactsCsv = open("../assets/1000contacts.csv");
+const contactsCsv = open("../../assets/1000contacts.csv");
 const benchmarkUser = "dird-personal-import-benchmark";
 
 export const options = {

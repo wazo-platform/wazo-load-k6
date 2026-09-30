@@ -4,7 +4,7 @@
 import exec from "k6/execution";
 import http from "k6/http";
 import { check } from "k6";
-import { createToken } from "../modules/wazo.js";
+import { createToken } from "../../modules/wazo.js";
 
 const engine = __ENV.WAZO_ENGINE;
 const adminUsername = __ENV.WAZO_ADMIN_USERNAME;
