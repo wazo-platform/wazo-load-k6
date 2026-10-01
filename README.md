@@ -100,6 +100,17 @@ what the startup line reports.
   up, at most ten times `TALK_SECONDS` later. Keep `RUN_SECONDS` well above
   `TALK_SECONDS`.
 
+### Continuous call load
+
+`scripts/continuous/sip-call.js` places the same calls, with the same
+variables except `RUN_SECONDS`, until the run is stopped (`docker stop`,
+Ctrl-C). Stopping hangs up the calls in progress, so none is left up on the
+stack. It has no thresholds and no monitor checks: the dashboards follow
+it.
+
+Members listen on host ports, so runs sharing a host need
+`LISTEN_PORT_BASE` ranges that do not overlap, e.g. `5070` and `10070`.
+
 ## Benchmarks
 
 Short benchmarks, a script each, that fail the run when slower than their
