@@ -60,6 +60,7 @@ Optional:
 | `TALK_SECONDS`       | `60`                 | mean talk time                             |
 | `MEMBERS`            | `50`                 | members registered to answer               |
 | `MEMBER_BASE`        | `10000`              | first member account                       |
+| `LISTEN_PORT_BASE`   | `5070`               | first member listen port                   |
 | `RUN_SECONDS`        | `300`                | how long calls are offered                 |
 | `AUDIO_FILE`         | `/audio/tone-3s.wav` | what both ends stream                      |
 | `SIP_LOCAL_IP`       | auto-detected        | address advertised in Via, Contact and SDP |
@@ -93,8 +94,8 @@ what the startup line reports.
   calls, a queue has its own limit.
 - **One process holds about a thousand concurrent calls.** Pass
   `--ulimit nofile=65536` past a few hundred members. Members listen from
-  port `5070` and the deployment opens up to `15069`, so a process tops out
-  at 10000 members.
+  `LISTEN_PORT_BASE` and the deployment opens `5070` to `15069`, so a
+  process tops out at 10000 members.
 - **A run outlasts `RUN_SECONDS`**: members stay until the last call hangs
   up, at most ten times `TALK_SECONDS` later. Keep `RUN_SECONDS` well above
   `TALK_SECONDS`.
