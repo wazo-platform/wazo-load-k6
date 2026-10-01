@@ -32,8 +32,6 @@ const audioFile = __ENV.AUDIO_FILE || "/audio/tone-3s.wav";
 // auto-detection picks the default-route address, wrong over a VPN
 const localIP = __ENV.SIP_LOCAL_IP || "";
 
-const listenPortMin = 5070;
-const listenPortMax = 15069;
 const registerExpires = 120;
 // PCMU at 20ms ptime, less a fifth for setup and teardown inside the window
 const minPacketsPerSecond = 40;
@@ -70,13 +68,6 @@ if (members < minMembers) {
 }
 
 const listenPortTop = listenPortBase + members - 1;
-if (listenPortBase < listenPortMin || listenPortTop > listenPortMax) {
-  throw new Error(
-    `MEMBERS=${members} from LISTEN_PORT_BASE=${listenPortBase} listens on` +
-      ` ${listenPortBase}-${listenPortTop}, outside the` +
-      ` ${listenPortMin}-${listenPortMax} the security group opens`,
-  );
-}
 
 export function describeLoad() {
   return (

@@ -93,9 +93,10 @@ what the startup line reports.
 - **The destination caps concurrency**: the `callees` group allows 1000
   calls, a queue has its own limit.
 - **One process holds about a thousand concurrent calls.** Pass
-  `--ulimit nofile=65536` past a few hundred members. Members listen from
-  `LISTEN_PORT_BASE` and the deployment opens `5070` to `15069`, so a
-  process tops out at 10000 members.
+  `--ulimit nofile=65536` past a few hundred members.
+- **Members listen on `LISTEN_PORT_BASE` and the `MEMBERS - 1` ports
+  above**, printed at startup: the network in front of the generator must
+  let the engine reach them, or calls go unanswered.
 - **A run outlasts `RUN_SECONDS`**: members stay until the last call hangs
   up, at most ten times `TALK_SECONDS` later. Keep `RUN_SECONDS` well above
   `TALK_SECONDS`.
@@ -109,7 +110,7 @@ stack. It has no thresholds and no monitor checks: the dashboards follow
 it.
 
 Members listen on host ports, so runs sharing a host need
-`LISTEN_PORT_BASE` ranges that do not overlap, e.g. `5070` and `10070`.
+`LISTEN_PORT_BASE` ranges that do not overlap.
 
 ## Benchmarks
 
