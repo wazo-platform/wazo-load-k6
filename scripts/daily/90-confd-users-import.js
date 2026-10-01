@@ -3,6 +3,7 @@
 
 import http from "k6/http";
 import { check } from "k6";
+import { checkStackInvariants } from "../../modules/monitor-checks/stack-invariants.js";
 import { createToken } from "../../modules/wazo.js";
 
 const engine = __ENV.WAZO_ENGINE;
@@ -28,6 +29,7 @@ export const options = {
     // An empty metric passes every other threshold
     "http_reqs{name:users-import}": ["count>0"],
     checks: ["rate==1.0"],
+    monitor_checks: ["rate==1.0"],
   },
 };
 
@@ -46,6 +48,7 @@ function createContext(token, body) {
 }
 
 export function setup() {
+  const runStart = Date.now();
   const token = createToken(engine, adminUsername, adminPassword).token;
   const internalContext = createContext(token, {
     label: "confd-users-import-internal",
@@ -57,7 +60,11 @@ export function setup() {
     type: "incall",
     incall_ranges: [{ start: "6000", end: "6099" }],
   });
-  return { token, internalContext, incallContext };
+  return { runStart, token, internalContext, incallContext };
+}
+
+export function teardown({ runStart }) {
+  checkStackInvariants(runStart);
 }
 
 export default function ({ token, internalContext, incallContext }) {

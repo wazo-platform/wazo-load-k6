@@ -4,6 +4,7 @@
 import exec from "k6/execution";
 import http from "k6/http";
 import { check } from "k6";
+import { checkStackInvariants } from "../../modules/monitor-checks/stack-invariants.js";
 import { createToken } from "../../modules/wazo.js";
 
 const engine = __ENV.WAZO_ENGINE;
@@ -54,6 +55,7 @@ export const options = {
     "http_reqs{scenario:dird-lookup,name:lookup}": ["count>0"],
     "http_reqs{scenario:dird-reverse,name:reverse}": ["count>0"],
     checks: ["rate==1.0"],
+    monitor_checks: ["rate==1.0"],
   },
 };
 
@@ -93,6 +95,7 @@ function nextItem(items) {
 }
 
 export function setup() {
+  const runStart = Date.now();
   const token = createToken(engine, adminUsername, adminPassword).token;
   const users = listUsers(token);
   if (users.length === 0) {
@@ -123,7 +126,11 @@ export function setup() {
     reverse(token, userUuid, extens[i % extens.length], "warm-up");
   }
 
-  return { token, userUuid, terms, extens };
+  return { runStart, token, userUuid, terms, extens };
+}
+
+export function teardown({ runStart }) {
+  checkStackInvariants(runStart);
 }
 
 export function dirdLookup({ token, terms }) {
