@@ -1,0 +1,68 @@
+From d597fbecc6d1d09d2663de0afc780de6425e78a7 Mon Sep 17 00:00:00 2001
+From: Francois Blackburn <fblackburn@wazo.io>
+Date: Thu, 1 Oct 2026 08:47:47 -0400
+Subject: [PATCH] Hang up the call when the VU is interrupted
+
+Why: sip.call() ignored k6's stop and sent BYE only once its duration
+ran out. A test stopped mid-call (Ctrl-C, SIGTERM, end of gracefulStop)
+left the call up on the remote side with no BYE ever coming, so the
+PBX kept it as a ghost call until its own RTP or session timeout.
+
+StartCall now takes a context and hangs up when it is cancelled; the
+k6 binding passes the VU's, which k6 cancels when it interrupts the
+iteration.
+---
+ k6ext/sip.go |  2 +-
+ sip/call.go  | 10 ++++++++--
+ 2 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/k6ext/sip.go b/k6ext/sip.go
+index a096a90..c7db50c 100644
+--- a/k6ext/sip.go
++++ b/k6ext/sip.go
+@@ -17,7 +17,7 @@ import (
+ func (m *SIPModule) Call(opts map[string]interface{}) map[string]interface{} {
+ 	cfg := parseCfg(opts)
+ 	start := time.Now()
+-	result, err := sipcall.StartCall(cfg)
++	result, err := sipcall.StartCall(m.vu.Context(), cfg)
+ 	elapsed := time.Since(start)
+ 
+ 	return m.emitAndReturn(result, err, elapsed)
+diff --git a/sip/call.go b/sip/call.go
+index 99369cc..f96b8a0 100644
+--- a/sip/call.go
++++ b/sip/call.go
+@@ -4,6 +4,7 @@
+ package sip
+ 
+ import (
++	"context"
+ 	"time"
+ 
+ 	corertp "github.com/srthorat/xk6-sip-media/core/rtp"
+@@ -124,14 +125,19 @@ type CallConfig struct {
+ // StartCall executes a complete SIP call: INVITE → RTP stream → BYE.
+ // It is a blocking wrapper around Dial() + WaitDone() + Result().
+ // Each k6 VU can call it concurrently — there is no shared mutable state.
++// Cancelling ctx hangs up the call before its duration ends.
+ //
+ // For mid-call operations (hold, transfer, conference) use Dial() instead.
+-func StartCall(cfg CallConfig) (corertp.CallResult, error) {
++func StartCall(ctx context.Context, cfg CallConfig) (corertp.CallResult, error) {
+ 	handle, err := Dial(cfg)
+ 	if err != nil {
+ 		return corertp.CallResult{}, err
+ 	}
+-	handle.WaitDone()
++	select {
++	case <-handle.done:
++	case <-ctx.Done():
++		_ = handle.Hangup()
++	}
+ 	return handle.Result(), nil
+ }
+ 
+-- 
+2.43.0
+

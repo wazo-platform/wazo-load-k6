@@ -60,6 +60,7 @@ Optional:
 | `TALK_SECONDS`       | `60`                 | mean talk time                             |
 | `MEMBERS`            | `50`                 | members registered to answer               |
 | `MEMBER_BASE`        | `10000`              | first member account                       |
+| `LISTEN_PORT_BASE`   | `5070`               | first member listen port                   |
 | `RUN_SECONDS`        | `300`                | how long calls are offered                 |
 | `AUDIO_FILE`         | `/audio/tone-3s.wav` | what both ends stream                      |
 | `SIP_LOCAL_IP`       | auto-detected        | address advertised in Via, Contact and SDP |
@@ -92,12 +93,24 @@ what the startup line reports.
 - **The destination caps concurrency**: the `callees` group allows 1000
   calls, a queue has its own limit.
 - **One process holds about a thousand concurrent calls.** Pass
-  `--ulimit nofile=65536` past a few hundred members. Members listen from
-  port `5070` and the deployment opens up to `15069`, so a process tops out
-  at 10000 members.
+  `--ulimit nofile=65536` past a few hundred members.
+- **Members listen on `LISTEN_PORT_BASE` and the `MEMBERS - 1` ports
+  above**, printed at startup: the network in front of the generator must
+  let the engine reach them, or calls go unanswered.
 - **A run outlasts `RUN_SECONDS`**: members stay until the last call hangs
   up, at most ten times `TALK_SECONDS` later. Keep `RUN_SECONDS` well above
   `TALK_SECONDS`.
+
+### Continuous call load
+
+`scripts/continuous/sip-call.js` places the same calls, with the same
+variables except `RUN_SECONDS`, until the run is stopped (`docker stop`,
+Ctrl-C). Stopping hangs up the calls in progress, so none is left up on the
+stack. It has no thresholds and no monitor checks: the dashboards follow
+it.
+
+Members listen on host ports, so runs sharing a host need
+`LISTEN_PORT_BASE` ranges that do not overlap.
 
 ## Benchmarks
 
