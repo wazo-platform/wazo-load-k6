@@ -26,7 +26,7 @@ const callRate = __ENV.SIMULTANEOUS_CALLS
   : Number(__ENV.CALL_RATE || 0.5);
 
 export const members = Number(__ENV.MEMBERS || 50);
-const memberBase = Number(__ENV.MEMBER_BASE || 10000);
+export const memberBase = Number(__ENV.MEMBER_BASE || 10000);
 const listenPortBase = Number(__ENV.LISTEN_PORT_BASE || 5070);
 const audioFile = __ENV.AUDIO_FILE || "/audio/tone-3s.wav";
 // auto-detection picks the default-route address, wrong over a VPN

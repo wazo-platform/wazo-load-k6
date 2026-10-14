@@ -3,6 +3,7 @@
 
 import exec from "k6/execution";
 import { sleep } from "k6";
+import { loginMemberAgents, logoffMemberAgents } from "../../modules/agents.js";
 import {
   describeLoad,
   members,
@@ -16,6 +17,7 @@ import {
 const runSeconds = 365 * 24 * 3600;
 
 export const options = {
+  insecureSkipTLSVerify: true,
   scenarios: {
     members: {
       executor: "per-vu-iterations",
@@ -44,6 +46,11 @@ export const options = {
 
 export function setup() {
   console.log(describeLoad());
+  loginMemberAgents();
+}
+
+export function teardown() {
+  logoffMemberAgents();
 }
 
 export function member() {
