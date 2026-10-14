@@ -28,28 +28,36 @@ Optional:
 
 ## Call load
 
-`scripts/on-demand/sip-call.js` dials a group or queue at `CALL_RATE` and
-answers with `MEMBERS` registered accounts; each call streams audio for a
-talk time drawn around `TALK_SECONDS`.
+`scripts/on-demand/sip-call.js` dials a queue at `CALL_RATE` and answers
+with `MEMBERS` registered accounts; each call streams audio for a talk time
+drawn around `TALK_SECONDS`.
 
 ```sh
 docker run --rm --network host \
   --env WAZO_ENGINE=engine.example.com \
   --env CALLER_USERNAME=loadtester --env CALLER_PASSWORD=loadtester \
-  --env CALLEE_EXTEN=20000 \
+  --env CALLEE_EXTEN=30000 \
+  --env WAZO_ADMIN_USERNAME=root --env WAZO_ADMIN_PASSWORD=secret \
   wazoplatform/wazo-load-k6 run /scripts/on-demand/sip-call.js
 ```
 
 By default: 30 calls a minute, one-minute talk time, 50 members, five
 minutes.
 
+`CALLEE_EXTEN` must reach a queue whose agents are numbered after the
+members' extensions (`MEMBER_BASE` and up): the run logs in the members'
+agents at start and logs them off at the end. The queue only rings
+logged-in agents whose line is registered, so the calls go to this run's
+members alone.
+
 Required:
 
-| Variable                             | Meaning                     |
-| ------------------------------------ | --------------------------- |
-| `WAZO_ENGINE`                        | engine host                 |
-| `CALLEE_EXTEN`                       | what the caller dials       |
-| `CALLER_USERNAME`, `CALLER_PASSWORD` | the trunk placing the calls |
+| Variable                                     | Meaning                                              |
+| -------------------------------------------- | ---------------------------------------------------- |
+| `WAZO_ENGINE`                                | engine host                                          |
+| `CALLEE_EXTEN`                               | the queue the caller dials                           |
+| `CALLER_USERNAME`, `CALLER_PASSWORD`         | the trunk placing the calls                          |
+| `WAZO_ADMIN_USERNAME`, `WAZO_ADMIN_PASSWORD` | admin with `confd.extensions.read` and agentd logins |
 
 Optional:
 
@@ -90,8 +98,8 @@ what the startup line reports.
 - **`MEMBERS` must carry the peak.** A member on a call is not rung again,
   so the script refuses to start below the mean concurrency, and a pool
   sized only for the mean rejects the peaks.
-- **The destination caps concurrency**: the `callees` group allows 1000
-  calls, a queue has its own limit.
+- **Agents must exist for every member**: a member whose agent is missing
+  fails the run at login.
 - **One process holds about a thousand concurrent calls.** Pass
   `--ulimit nofile=65536` past a few hundred members.
 - **Members listen on `LISTEN_PORT_BASE` and the `MEMBERS - 1` ports
@@ -105,22 +113,12 @@ what the startup line reports.
 
 `scripts/continuous/sip-call.js` places the same calls, with the same
 variables except `RUN_SECONDS`, until the run is stopped (`docker stop`,
-Ctrl-C). Stopping hangs up the calls in progress, so none is left up on the
-stack. It has no thresholds and no monitor checks: the dashboards follow
-it.
+Ctrl-C). Stopping hangs up the calls in progress and logs the agents off,
+so none is left up on the stack. It has no thresholds and no monitor
+checks: the dashboards follow it.
 
 Members listen on host ports, so runs sharing a host need
 `LISTEN_PORT_BASE` ranges that do not overlap.
-
-`CALLEE_EXTEN` must reach a queue whose agents are numbered after the
-members' extensions (`MEMBER_BASE` and up): the run logs in the members'
-agents at start and logs them off when stopped. The queue only rings
-logged-in agents whose line is registered, so the calls go to this run's
-members alone. Logging agents in needs an admin:
-
-| Variable                                     | Meaning                                              |
-| -------------------------------------------- | ---------------------------------------------------- |
-| `WAZO_ADMIN_USERNAME`, `WAZO_ADMIN_PASSWORD` | admin with `confd.extensions.read` and agentd logins |
 
 ## Benchmarks
 
