@@ -3,6 +3,7 @@
 
 import exec from "k6/execution";
 import { sleep } from "k6";
+import { loginMemberAgents, logoffMemberAgents } from "../../modules/agents.js";
 import {
   checkMonitor,
   stackMatcher,
@@ -32,6 +33,7 @@ const callerWindowSeconds = warmupSeconds + runSeconds;
 const memberSeconds = callerWindowSeconds + memberCallCapSeconds;
 
 export const options = {
+  insecureSkipTLSVerify: true,
   scenarios: {
     members: {
       executor: "per-vu-iterations",
@@ -67,10 +69,12 @@ export const options = {
 
 export function setup() {
   console.log(describeLoad());
+  loginMemberAgents();
   return { runStart: Date.now() };
 }
 
 export function teardown({ runStart }) {
+  logoffMemberAgents();
   checkStackInvariants(runStart);
   checkMonitor(
     "service latency",
