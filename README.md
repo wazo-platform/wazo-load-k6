@@ -112,6 +112,16 @@ it.
 Members listen on host ports, so runs sharing a host need
 `LISTEN_PORT_BASE` ranges that do not overlap.
 
+`CALLEE_EXTEN` must reach a queue whose agents are numbered after the
+members' extensions (`MEMBER_BASE` and up): the run logs in the members'
+agents at start and logs them off when stopped. The queue only rings
+logged-in agents whose line is registered, so the calls go to this run's
+members alone. Logging agents in needs an admin:
+
+| Variable                                     | Meaning                                              |
+| -------------------------------------------- | ---------------------------------------------------- |
+| `WAZO_ADMIN_USERNAME`, `WAZO_ADMIN_PASSWORD` | admin with `confd.extensions.read` and agentd logins |
+
 ## Benchmarks
 
 Short benchmarks, a script each, that fail the run when slower than their
