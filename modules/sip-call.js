@@ -3,6 +3,7 @@
 
 import sip from "k6/x/sip";
 import { check } from "k6";
+import { Counter, Gauge } from "k6/metrics";
 
 const engine = __ENV.WAZO_ENGINE;
 const calleeExten = __ENV.CALLEE_EXTEN;
@@ -69,6 +70,11 @@ if (members < minMembers) {
 
 const listenPortTop = listenPortBase + members - 1;
 
+// checks only export a ratio over the whole run, too slow to move on a long one
+const sipCalls = new Counter("sip_calls");
+// set on every call: remote-write only pushes a gauge when it gets a sample
+const expectedCalls = new Gauge("expected_calls");
+
 export function describeLoad() {
   return (
     `${ratePerMinute} calls/min at ${talkSeconds}s mean talk time:` +
@@ -94,6 +100,7 @@ export function registerMember(index) {
 }
 
 export function placeCall() {
+  expectedCalls.add(concurrency);
   const seconds = drawTalkSeconds();
   const result = sip.call({
     target: `sip:${calleeExten}@${engine}`,
@@ -116,6 +123,7 @@ export function placeCall() {
     "MOS stayed good": (r) => r.mos >= minMos,
     "jitter stayed low": (r) => r.jitter < maxJitterMs,
   });
+  sipCalls.add(1, { answered: String(result.success === true) });
   if (!result.success) {
     console.error(
       `${callerUsername} -> ${calleeExten} failed: ${result.error}`,
