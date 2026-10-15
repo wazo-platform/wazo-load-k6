@@ -26,11 +26,6 @@ export function stackMatcher() {
   return `testid="${testId}"`;
 }
 
-// The monitor scrapes the load-testing job on stacks that do not serve it
-function exportersMatcher() {
-  return `${stackMatcher()},job!="load-testing"`;
-}
-
 function query(name, promql) {
   const response = http.get(
     `${prometheus}/api/v1/query?query=${encodeURIComponent(promql)}`,
@@ -56,7 +51,7 @@ function record(name, failures) {
 function waitForScrapes() {
   const runEnd = Date.now() / 1000;
   const deadline = runEnd + SCRAPE_TIMEOUT_SECONDS;
-  const promql = `min(timestamp(up{${exportersMatcher()}}))`;
+  const promql = `min(timestamp(up{${stackMatcher()}}))`;
   while (Date.now() / 1000 < deadline) {
     const [oldest] = query("scraped after the run", promql);
     if (oldest && Number(oldest.value[1]) > runEnd) {
@@ -86,10 +81,7 @@ function prepareOnce() {
   }
   monitorChecks.add(waitForScrapes(), { check: "scraped after the run" });
   // A failed scrape still stamps `up`, leaving that exporter's series stale
-  record(
-    "exporter down",
-    query("exporter down", `up{${exportersMatcher()}} == 0`),
-  );
+  record("exporter down", query("exporter down", `up{${stackMatcher()}} == 0`));
 }
 
 // buildQuery gets the run window and returns the series breaking the check
