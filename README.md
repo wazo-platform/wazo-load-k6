@@ -120,6 +120,67 @@ checks: the dashboards follow it.
 Members listen on host ports, so runs sharing a host need
 `LISTEN_PORT_BASE` ranges that do not overlap.
 
+## Directory lookup limit
+
+`scripts/on-demand/dird-lookup-limit.js` looks up a broad term, as users of
+the stack, in directories large enough for each lookup to match thousands of
+entries. It compares a stack with and without the limit on lookup results: run
+it against both and compare the runs.
+
+```sh
+docker run --rm \
+  --env WAZO_ENGINE=engine.example.com \
+  --env WAZO_ADMIN_USERNAME=root --env WAZO_ADMIN_PASSWORD=secret \
+  --env WAZO_TENANT=9d283e05-6b2f-46b4-bca5-1c2558dbcb53 \
+  wazoplatform/wazo-load-k6 run /scripts/on-demand/dird-lookup-limit.js
+```
+
+`setup()` builds the directories in `WAZO_TENANT`, around the
+[wazo-load-tools](https://github.com/wazo-platform/wazo-load-tools) users
+already on the stack:
+
+| Directory | Entries                            | Built                                        |
+| --------- | ---------------------------------- | -------------------------------------------- |
+| internal  | the stack users, `User <n>`        | already on the stack                         |
+| phonebook | 5000 contacts, `PhonebookUser <n>` | created, then added to the `default` lookups |
+| personal  | 5 contacts for each stack user     | created as each user, with its own token     |
+
+Every entry carries "User" in its first name, so the default term matches all
+of them. The lookups are made as 100 of the stack users, in turn: the personal
+source answers with the contacts of the caller only.
+
+Required: the variables of the [benchmarks](#benchmarks).
+
+Optional:
+
+| Variable              | Default  | Meaning                          |
+| --------------------- | -------- | -------------------------------- |
+| `WAZO_USERS_PASSWORD` | `secret` | password of the stack users      |
+| `LOOKUP_TERM`         | `user`   | term looked up                   |
+| `LOOKUP_RATE`         | `10`     | lookups per second               |
+| `LOOKUP_SECONDS`      | `60`     | how long the lookups are offered |
+
+The admin needs `confd.users.read`, `dird.phonebooks.#`,
+`dird.backends.phonebook.sources.#` and `dird.profiles.#`; the stack users need
+`dird.personal.create` and `dird.directories.lookup.default.read`.
+
+### Reading a run
+
+- **No latency threshold.** A bound sized for one stack fails the other by
+  design. A run fails on an error, an empty answer, or a monitor check.
+- **`lookup_results`** counts the results of each answer, and so tells which
+  stack answered: thousands without the limit, at most the limit with it.
+- **`lookup_body_size`** is the size of each answer; `data_received` the total.
+- **`dropped_iterations`** counts the lookups the stack could not take at
+  `LOOKUP_RATE`. Expect some without the limit.
+
+### Running it more than once
+
+`setup()` creates what is missing and keeps what exists, so a second run on the
+same stack reuses the directories. The first run also seeds them — about 30000
+requests, mostly writes — so discard it, and compare only the runs after it:
+both stacks are then measured against the same, already built directories.
+
 ## Benchmarks
 
 Short benchmarks, a script each, that fail the run when slower than their
