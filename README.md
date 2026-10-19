@@ -154,6 +154,53 @@ Required by every benchmark:
   requests. Needs `confd.users.read`, `dird.directories.lookup.#` and
   `dird.directories.reverse.#`.
 
+## Google contacts load
+
+`scripts/on-demand/dird-google-contacts.js` looks up contacts of Google
+accounts, then lists them page by page through the Google source's contacts
+endpoint. The accounts are served by the Google People API mock that
+`run-load-k6-script` installs on the stack, so the script needs that job's
+`ITEM-811-google-people-api-mock` branch as `pipeline_branch` and
+`wazo-dird:ITEM-811-google-contacts-load-tests` in `wazo_branches`: only
+that wazo-dird can be pointed at the mock and trust its tokens.
+
+The script configures the mock, creates `USERS` users in `WAZO_TENANT`, each
+a Google account of `GOOGLE_CONTACTS` contacts that wazo-dird downloads on
+the user's first request and caches, and reports how many pages the mock
+served to how many accounts: one download per user shows the cache holding.
+The users are reused by a later run on the same stack.
+
+```sh
+docker run --rm \
+  --env WAZO_ENGINE=engine.example.com \
+  --env WAZO_ADMIN_USERNAME=root --env WAZO_ADMIN_PASSWORD=secret \
+  --env WAZO_TENANT=9d283e05-6b2f-46b4-bca5-1c2558dbcb53 \
+  --env GOOGLE_CONTACTS=5000 \
+  wazoplatform/wazo-load-k6 run /scripts/on-demand/dird-google-contacts.js
+```
+
+Required:
+
+| Variable                                     | Meaning                                                                |
+| -------------------------------------------- | ---------------------------------------------------------------------- |
+| `WAZO_ENGINE`                                | engine host                                                            |
+| `WAZO_ADMIN_USERNAME`, `WAZO_ADMIN_PASSWORD` | admin with `auth.users.create` and `dird.backends.google.sources.read` |
+| `WAZO_TENANT`                                | UUID of the tenant holding the users                                   |
+
+Optional:
+
+| Variable               | Default                   | Meaning                                 |
+| ---------------------- | ------------------------- | --------------------------------------- |
+| `GOOGLE_MOCK_URL`      | `http://WAZO_ENGINE:8090` | the mock's control API                  |
+| `GOOGLE_CONTACTS`      | `1000`                    | contacts of each Google account         |
+| `GOOGLE_PAGE_DELAY_MS` | `0`                       | how long the mock takes to serve a page |
+| `USERS`                | `20`                      | users, one Google account each          |
+| `LOOKUP_RATE`          | `10`                      | lookups per second                      |
+| `LOOKUP_SECONDS`       | `60`                      | how long the lookups last               |
+| `LIST_RATE`            | `10`                      | contact pages listed per second         |
+| `LIST_SECONDS`         | `60`                      | how long the listings last              |
+| `PAGE_SIZE`            | `50`                      | contacts per listed page                |
+
 ## Monitor checks
 
 Thresholds judge what the generator sees. What only the monitoring shows is
