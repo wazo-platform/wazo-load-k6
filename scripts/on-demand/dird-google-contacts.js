@@ -43,6 +43,35 @@ const TOKEN_EXPIRATION_SECONDS =
 
 const pages = Math.ceil(contactsPerUser / pageSize);
 
+// A/B runs compare wazo-dird builds: a build that fails the thresholds, or
+// whose checks fail, must still report its numbers
+const reportOnly = __ENV.AB_MODE === "report";
+const arm = __ENV.ARM;
+
+// In report mode the thresholds always hold, which still lists their
+// sub-metrics in the summary; only the stack's own health gates the run
+const thresholds = reportOnly
+  ? {
+      "http_req_duration{scenario:google-lookup,name:lookup}": ["p(95)>=0"],
+      "http_req_duration{scenario:google-contacts,name:contacts}": ["p(95)>=0"],
+      "http_reqs{scenario:google-lookup,name:lookup}": ["count>=0"],
+      "http_reqs{scenario:google-contacts,name:contacts}": ["count>=0"],
+      checks: ["rate>=0"],
+      monitor_checks: ["rate==1.0"],
+    }
+  : {
+      // A lookup downloads the account's contacts when they are not cached yet
+      "http_req_duration{scenario:google-lookup,name:lookup}": ["p(95)<1000"],
+      "http_req_duration{scenario:google-contacts,name:contacts}": [
+        "p(95)<500",
+      ],
+      // An empty metric passes every other threshold
+      "http_reqs{scenario:google-lookup,name:lookup}": ["count>0"],
+      "http_reqs{scenario:google-contacts,name:contacts}": ["count>0"],
+      checks: ["rate==1.0"],
+      monitor_checks: ["rate==1.0"],
+    };
+
 export const options = {
   insecureSkipTLSVerify: true,
   scenarios: {
@@ -67,16 +96,8 @@ export const options = {
       exec: "googleContacts",
     },
   },
-  thresholds: {
-    // A lookup downloads the account's contacts when they are not cached yet
-    "http_req_duration{scenario:google-lookup,name:lookup}": ["p(95)<1000"],
-    "http_req_duration{scenario:google-contacts,name:contacts}": ["p(95)<500"],
-    // An empty metric passes every other threshold
-    "http_reqs{scenario:google-lookup,name:lookup}": ["count>0"],
-    "http_reqs{scenario:google-contacts,name:contacts}": ["count>0"],
-    checks: ["rate==1.0"],
-    monitor_checks: ["rate==1.0"],
-  },
+  tags: arm ? { arm } : {},
+  thresholds,
 };
 
 function configureMock() {

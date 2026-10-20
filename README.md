@@ -169,6 +169,11 @@ a Google account of `GOOGLE_CONTACTS` contacts that wazo-dird downloads on
 the user's first request and caches, and reports how many pages and searches
 the mock served to how many accounts: one download per user and no search
 shows the cache holding; without the cache, each lookup makes two searches.
+To compare two wazo-dird builds, run the script against each with
+`AB_MODE=report` and a different `ARM`: a build that is slower, or whose
+listings differ, then reports its numbers instead of failing the run. The
+monitor checks still fail it. Keep `GOOGLE_CONTACTS` at 1000 or less: a build
+without the cache lists a single page of 1000 contacts.
 The users are reused by a later run on the same stack.
 
 ```sh
@@ -201,6 +206,8 @@ Optional:
 | `LIST_RATE`            | `10`                      | contact pages listed per second         |
 | `LIST_SECONDS`         | `60`                      | how long the listings last              |
 | `PAGE_SIZE`            | `50`                      | contacts per listed page                |
+| `AB_MODE`              | unset                     | `report`: no latency or check threshold |
+| `ARM`                  | unset                     | label tagging every metric of the run   |
 
 ## Monitor checks
 
