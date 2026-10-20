@@ -187,7 +187,8 @@ export function setup() {
 export function teardown({ runStart }) {
   const stats = mockStats();
   console.log(
-    `the Google mock served ${stats.page_requests} pages to ${stats.accounts} accounts`,
+    `the Google mock served ${stats.page_requests} pages and ` +
+      `${stats.search_requests} searches to ${stats.accounts} accounts`,
   );
   checkStackInvariants(runStart);
 }

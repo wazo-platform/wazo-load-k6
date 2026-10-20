@@ -166,8 +166,9 @@ that wazo-dird can be pointed at the mock and trust its tokens.
 
 The script configures the mock, creates `USERS` users in `WAZO_TENANT`, each
 a Google account of `GOOGLE_CONTACTS` contacts that wazo-dird downloads on
-the user's first request and caches, and reports how many pages the mock
-served to how many accounts: one download per user shows the cache holding.
+the user's first request and caches, and reports how many pages and searches
+the mock served to how many accounts: one download per user and no search
+shows the cache holding; without the cache, each lookup makes two searches.
 The users are reused by a later run on the same stack.
 
 ```sh
