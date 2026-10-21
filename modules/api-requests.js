@@ -47,7 +47,7 @@ export function recordApiRequests(page, engine) {
   // a timeout or a request the browser blocked, such as on CORS, gets no
   // response but was still asked for
   page.on("requestfailed", (request) => {
-    record(request, "failed");
+    record(request, `failed ${request.failure().errorText}`);
   });
 
   return {
