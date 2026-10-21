@@ -188,7 +188,9 @@ knowing how it is built, so the app and its driver can live elsewhere:
   whose `step(name)` opens the next step and `capture()` lists the routes each
   step requested, ids replaced by `{id}` and query strings reduced to their
   parameter names. Every response adds to the `api_requests` counter, tagged
-  `step`, `service`, `route`, `method` and `status`, for budgets per step.
+  `step`, `service`, `route`, `method` and `status` (`failed` for a request
+  that got no response, such as a timeout or one blocked on CORS), for
+  budgets per step.
   CORS preflights count: the engine answers them like any other request.
 - **`modules/peer-connections.js`** wraps the page's `RTCPeerConnection`
   before its scripts run (`trackPeerConnections(context)`), so

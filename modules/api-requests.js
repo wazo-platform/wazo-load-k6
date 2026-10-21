@@ -18,14 +18,13 @@ export function recordApiRequests(page, engine) {
   const routes = new Map();
   let currentStep = "start";
 
-  page.on("response", (response) => {
-    const url = response.url();
+  function record(request, status) {
+    const url = request.url();
     if (!url.startsWith(prefix)) {
       return;
     }
     const { service, route } = parseRoute(url.slice(prefix.length));
-    const method = response.request().method();
-    const status = String(response.status());
+    const method = request.method();
     apiRequests.add(1, { step: currentStep, service, route, method, status });
 
     const key = `${currentStep} ${method} ${service} ${route}`;
@@ -40,6 +39,15 @@ export function recordApiRequests(page, engine) {
     }
     const entry = routes.get(key);
     entry.statuses[status] = (entry.statuses[status] || 0) + 1;
+  }
+
+  page.on("response", (response) => {
+    record(response.request(), String(response.status()));
+  });
+  // a timeout or a request the browser blocked, such as on CORS, gets no
+  // response but was still asked for
+  page.on("requestfailed", (request) => {
+    record(request, "failed");
   });
 
   return {
