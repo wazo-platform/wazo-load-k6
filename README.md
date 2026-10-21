@@ -177,6 +177,32 @@ stack's series must carry as a `testid` label: the checks select the stack
 by it. Only a stack created for the run carries it, so a permanent stack
 cannot be checked.
 
+## Browser pages
+
+Two modules measure a web app driven by a
+[k6 browser](https://grafana.com/docs/k6/latest/using-k6-browser/) VU without
+knowing how it is built, so the app and its driver can live elsewhere:
+
+- **`modules/api-requests.js`** counts what the page asks of the engine's REST
+  APIs, by workflow step: `recordApiRequests(page, engine)` returns a recorder
+  whose `step(name)` opens the next step and `capture()` lists the routes each
+  step requested, ids replaced by `{id}` and query strings reduced to their
+  parameter names. Every response adds to the `api_requests` counter, tagged
+  `step`, `service`, `route`, `method` and `status`, for budgets per step.
+  CORS preflights count: the engine answers them like any other request.
+- **`modules/peer-connections.js`** wraps the page's `RTCPeerConnection`
+  before its scripts run (`trackPeerConnections(context)`), so
+  `rtpPackets(page)` reads the audio sent and received over whatever WebRTC
+  library the page uses, and `waitForPeerConnectionsClosed(page, timeoutMs)`
+  tells when a call has ended.
+
+A page using WebRTC against a stack needs fake media devices and has to accept
+the stack's self-signed certificate:
+
+```sh
+--env K6_BROWSER_ARGS=no-sandbox,ignore-certificate-errors,use-fake-ui-for-media-stream,use-fake-device-for-media-stream
+```
+
 ## Docker image
 
 The SIP and RTP scripts need a k6 binary built with the
