@@ -45,8 +45,12 @@ export function recordApiRequests(page, engine) {
     record(response.request(), String(response.status()));
   });
   // a timeout or a request the browser blocked, such as on CORS, gets no
-  // response but was still asked for
-  page.on("requestfailed", (request) => {
+  // response but was still asked for; the browser also reports as aborted
+  // some requests it already got a response for, counted there already
+  page.on("requestfailed", async (request) => {
+    if (await request.response()) {
+      return;
+    }
     record(request, `failed ${request.failure().errorText}`);
   });
 
