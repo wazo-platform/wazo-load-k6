@@ -18,7 +18,7 @@ pipeline {
       parallel {
         stage('Build amd64') {
           agent {
-            label 'general-debian12-small'
+            label 'general-amd64-debian12-small'
           }
           steps {
             withCredentials([usernamePassword(
@@ -34,7 +34,7 @@ pipeline {
         }
         stage('Build arm64') {
           agent {
-            label 'general-aws-arm-debian12-small'
+            label 'general-arm64-debian12-small'
           }
           steps {
             withCredentials([usernamePassword(
