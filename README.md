@@ -182,6 +182,24 @@ Optional:
 | `PROBE_SESSIONS`         | `100`                 | first sessions probing                     |
 | `PROBE_INTERVAL_SECONDS` | `10`                  | time between a session's probes            |
 
+## Mobile traffic profile
+
+`tools/har-profile.mjs` reads a HAR capture of the mobile app, with its
+websocket frames (`_webSocketMessages`, as mitmproxy and Chrome write them),
+and counts each kind of message: REST calls by route, wazo-websocketd ops
+and events, SIP over websocket by method and status.
+
+```sh
+node tools/har-profile.mjs --host engine.example.com profile app.har
+node tools/har-profile.mjs --host engine.example.com diff old.har new.har
+node tools/har-profile.mjs subscriptions app.har > assets/mobile-websocket-events.json
+```
+
+`diff` prints, as a Markdown table, what an app version sends or receives
+differently from the previous one: a new subscription, a new polled route.
+`subscriptions` refreshes the events `bus-bindings.js` subscribes to.
+`--host` drops what the OS and other apps send during the capture.
+
 ## Benchmarks
 
 Short benchmarks, a script each, that fail the run when slower than their

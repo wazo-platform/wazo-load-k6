@@ -16,4 +16,8 @@ module.exports = [
       },
     },
   },
+  {
+    files: ["tools/**"],
+    languageOptions: { globals: { process: "readonly", URL: "readonly" } },
+  },
 ];
