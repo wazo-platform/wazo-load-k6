@@ -24,12 +24,26 @@ const SUCCESS = { min: 200, max: 299 };
 const PLACEHOLDER = /\{([a-z_]+?)(?:_(\d+))?\}/g;
 const BACKEND = /\/backends\/([^/]+)\//;
 
+// A session holds its values until it ends: on a large tenant the whole
+// directory per session would exhaust the load generator
+const contactsUsed = Math.max(
+  0,
+  ...steps.flatMap((step) =>
+    [
+      ...`${step.path} ${step.body ?? ""}`.matchAll(/\{contact_uuid_(\d+)\}/g),
+    ].map(([, index]) => Number(index) + 1),
+  ),
+);
+
 const extractors = {
-  line_id: (body) => body.lines[0].id,
+  line_id: (body) => body.lines[0]?.id,
   sources: (body) => body.items,
   peers: (body, user) => callPeers(body, user.uuid),
   contacts: (body, user) =>
-    body.items.filter((contact) => contact.uuid !== user.uuid),
+    body.items
+      .filter((contact) => contact.uuid !== user.uuid)
+      .slice(0, contactsUsed)
+      .map((contact) => ({ uuid: contact.uuid })),
 };
 
 function deferred() {
