@@ -388,9 +388,11 @@ function openSession(user, probing, rampStart) {
 export default function ({ users: loggedIn }) {
   // lets the stack drain the push token registrations of setup first
   const rampStart = exec.scenario.startTime + settleSeconds * 1000;
+  // a step's sessions open one after the other across the step, as logins
+  // do, rather than all in the same millisecond
+  const openingInterval = (stepSeconds * 1000) / sessionsPerStep;
   for (let index = exec.vu.idInTest - 1; index < sessions; index += vus) {
-    const opensAt =
-      rampStart + Math.floor(index / sessionsPerStep) * stepSeconds * 1000;
+    const opensAt = rampStart + index * openingInterval;
     setTimeout(
       () => openSession(loggedIn[index], index < probeSessions, rampStart),
       opensAt - Date.now(),

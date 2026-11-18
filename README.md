@@ -128,8 +128,8 @@ the user's push events, and holds a websocket subscribed one event at a
 time to the events the mobile app subscribes to
 (`assets/mobile-websocket-events.json`), for which wazo-websocketd binds
 each event. After `SETTLE_SECONDS`, for the stack to process the push token
-registrations, sessions open in `RAMP_STEPS` equal steps, `STEP_SECONDS`
-apart, then hold `HOLD_SECONDS`.
+registrations, sessions open in `RAMP_STEPS` equal steps of `STEP_SECONDS`,
+one after the other across each step, then hold `HOLD_SECONDS`.
 
 It reports, per number of sessions open (`sessions` tag):
 

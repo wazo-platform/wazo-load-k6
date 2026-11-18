@@ -93,6 +93,8 @@ async function play(step, session) {
         "X-Auth-Token": session.user.token,
       },
       tags: { name: step.path },
+      // a body the replay does not read would only fill the load generator
+      responseType: step.provides ? "text" : "none",
       responseCallback: http.expectedStatuses(SUCCESS, step.status),
     },
   );
