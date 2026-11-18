@@ -143,6 +143,16 @@ It reports, per number of sessions open (`sessions` tag):
 
 The session also subscribes to that update event, which the app does not.
 
+A session opens as the app does: it replays the REST requests the app sends
+when it logs in (`assets/mobile-login.json`), at their recorded times, and
+opens the websocket when the app did. Each request carries the user's own
+identifiers, taken from its token or from the responses before it: its line,
+its directory sources, the people in its call history and its contacts.
+`mobile_login_skipped` counts the requests the stack has no value for, such as
+a directory backend it does not configure. Requests are reported by route
+(`name` tag). With `CREATE_USERS`, whose users exist only in wazo-auth, the
+session opens its websocket straight away.
+
 ```sh
 docker run --rm --network host \
   --env WAZO_ENGINE=engine.example.com \

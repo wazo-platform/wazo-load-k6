@@ -13,6 +13,7 @@ import {
 } from "k6/timers";
 import { WebSocket } from "k6/websockets";
 import { checkStackInvariants } from "../../modules/monitor-checks/stack-invariants.js";
+import { playLogin } from "../../modules/mobile-login.js";
 import { createToken, tokenRequest } from "../../modules/wazo.js";
 
 const engine = __ENV.WAZO_ENGINE;
@@ -125,8 +126,12 @@ function mobileUrl(uuid) {
   return `${auth}/users/${uuid}/external/mobile`;
 }
 
+function pushToken(user) {
+  return `${CREATED_USER_PREFIX}${user.uuid}`;
+}
+
 function mobileTokenBody(user) {
-  return JSON.stringify({ token: `${CREATED_USER_PREFIX}${user.uuid}` });
+  return JSON.stringify({ token: pushToken(user) });
 }
 
 function deleteUser(adminToken, uuid) {
@@ -368,6 +373,17 @@ function holdSession(user, probing, rampStart) {
   }, sessionEnd - Date.now());
 }
 
+// The app's login needs a telephony user: created users only exist in
+// wazo-auth, so their sessions open the websocket straight away
+function openSession(user, probing, rampStart) {
+  const holdWebsocket = () => holdSession(user, probing, rampStart);
+  if (createUsers) {
+    holdWebsocket();
+    return;
+  }
+  playLogin(engine, user, pushToken(user), holdWebsocket);
+}
+
 // One VU per session would take the load generator down before the stack
 export default function ({ users: loggedIn }) {
   // lets the stack drain the push token registrations of setup first
@@ -376,7 +392,7 @@ export default function ({ users: loggedIn }) {
     const opensAt =
       rampStart + Math.floor(index / sessionsPerStep) * stepSeconds * 1000;
     setTimeout(
-      () => holdSession(loggedIn[index], index < probeSessions, rampStart),
+      () => openSession(loggedIn[index], index < probeSessions, rampStart),
       opensAt - Date.now(),
     );
   }
