@@ -200,6 +200,18 @@ differently from the previous one: a new subscription, a new polled route.
 `subscriptions` refreshes the events `bus-bindings.js` subscribes to.
 `--host` drops what the OS and other apps send during the capture.
 
+`tools/har-login.mjs` extracts the requests a session sends when it logs in,
+which `bus-bindings.js` replays:
+
+```sh
+node tools/har-login.mjs --host engine.example.com app.har > assets/mobile-login.json
+```
+
+It replaces every identifier with a placeholder naming where the replay takes
+it from. It stops on a value it cannot trace back to the token or to an
+earlier response: the app has started to depend on something the replay does
+not know how to fill yet.
+
 ## Benchmarks
 
 Short benchmarks, a script each, that fail the run when slower than their

@@ -1,0 +1,198 @@
+[
+  {
+    "at": 0.414,
+    "method": "GET",
+    "path": "/api/confd/1.1/infos",
+    "status": 200
+  },
+  {
+    "at": 0.512,
+    "method": "GET",
+    "path": "/api/confd/1.1/users/{user_uuid}",
+    "status": 200,
+    "provides": "line_id"
+  },
+  {
+    "at": 0.651,
+    "method": "GET",
+    "path": "/api/confd/1.1/users/{user_uuid}/lines/{line_id}/associated/endpoints/sip?view=merged",
+    "status": 200
+  },
+  {
+    "at": 0.813,
+    "method": "GET",
+    "path": "/api/auth/0.1/users/{user_uuid}/external/mobile/sender_id",
+    "status": 200
+  },
+  {
+    "at": 1.123,
+    "method": "POST",
+    "path": "/api/auth/0.1/users/{user_uuid}/external/mobile",
+    "status": 409,
+    "body": "{\"token\":\"{push_token}\"}"
+  },
+  {
+    "at": 1.212,
+    "method": "PUT",
+    "path": "/api/auth/0.1/users/{user_uuid}/external/mobile",
+    "status": 200,
+    "body": "{\"token\":\"{push_token}\"}"
+  },
+  {
+    "at": 1.309,
+    "method": "GET",
+    "path": "/api/webhookd/1.0/users/me/subscriptions",
+    "status": 200
+  },
+  {
+    "at": 1.614,
+    "method": "GET",
+    "path": "/api/dird/0.1/directories/favorites/default",
+    "status": 200
+  },
+  {
+    "at": 1.622,
+    "method": "GET",
+    "path": "/api/dird/0.1/directories/default/sources",
+    "status": 200,
+    "provides": "sources"
+  },
+  {
+    "at": 1.874,
+    "websocket": true
+  },
+  {
+    "at": 1.884,
+    "method": "GET",
+    "path": "/api/confd/1.1/users/{user_uuid}",
+    "status": 200
+  },
+  {
+    "at": 1.891,
+    "method": "GET",
+    "path": "/api/call-logd/1.0/users/me/cdr?limit=50&order=start&direction=desc",
+    "status": 200,
+    "provides": "peers"
+  },
+  {
+    "at": 2.066,
+    "method": "GET",
+    "path": "/api/confd/1.1/users/{user_uuid}/services/dnd",
+    "status": 200
+  },
+  {
+    "at": 2.071,
+    "method": "GET",
+    "path": "/api/calld/1.0/users/me/voicemails/messages?limit=100&order=timestamp&direction=desc",
+    "status": 200
+  },
+  {
+    "at": 2.074,
+    "method": "GET",
+    "path": "/api/confd/1.1/users/{user_uuid}/callerids/outgoing",
+    "status": 200
+  },
+  {
+    "at": 2.078,
+    "method": "GET",
+    "path": "/api/confd/1.1/users/me/blocklist/numbers",
+    "status": 200
+  },
+  {
+    "at": 2.166,
+    "method": "GET",
+    "path": "/api/calld/1.0/users/me/calls",
+    "status": 200
+  },
+  {
+    "at": 2.233,
+    "method": "GET",
+    "path": "/api/chatd/1.0/users/me/rooms",
+    "status": 200
+  },
+  {
+    "at": 2.241,
+    "method": "GET",
+    "path": "/api/chatd/1.0/users/me/rooms/messages?distinct=room_uuid&order=created_at&direction=desc&limit=50",
+    "status": 200
+  },
+  {
+    "at": 2.279,
+    "method": "GET",
+    "path": "/api/dird/0.1/backends/conference/sources/{source_uuid}/contacts?offset=0&order=name",
+    "status": 200
+  },
+  {
+    "at": 2.325,
+    "method": "GET",
+    "path": "/api/chatd/1.0/users/presences?user_uuid={user_uuid}",
+    "status": 200
+  },
+  {
+    "at": 2.396,
+    "method": "GET",
+    "path": "/api/confd/1.1/users/{user_uuid}",
+    "status": 200
+  },
+  {
+    "at": 3.117,
+    "method": "GET",
+    "path": "/api/confd/1.1/users/me/callerids/outgoing/default",
+    "status": 200
+  },
+  {
+    "at": 3.13,
+    "method": "GET",
+    "path": "/api/dird/0.1/backends/google/sources/{source_uuid}/contacts?offset=0&order=name",
+    "status": 404
+  },
+  {
+    "at": 3.18,
+    "method": "GET",
+    "path": "/api/dird/0.1/directories/lookup/default?term={peer_number_0}",
+    "status": 200
+  },
+  {
+    "at": 3.328,
+    "method": "GET",
+    "path": "/api/dird/0.1/backends/office365/sources/{source_uuid}/contacts?offset=0&order=firstname",
+    "status": 404
+  },
+  {
+    "at": 3.36,
+    "method": "GET",
+    "path": "/api/chatd/1.0/users/presences?user_uuid={peer_uuid_0}",
+    "status": 200
+  },
+  {
+    "at": 3.45,
+    "method": "GET",
+    "path": "/api/dird/0.1/backends/wazo/sources/{source_uuid}/contacts?offset=0&order=firstname",
+    "status": 200,
+    "provides": "contacts"
+  },
+  {
+    "at": 3.788,
+    "method": "GET",
+    "path": "/api/chatd/1.0/users/presences?user_uuid={contact_uuid_1},{contact_uuid_2},{contact_uuid_3}",
+    "status": 200
+  },
+  {
+    "at": 3.942,
+    "method": "GET",
+    "path": "/api/confd/1.1/users/{user_uuid}/external/apps/wazo-euc-application-mobile?view=fallback",
+    "status": 200
+  },
+  {
+    "at": 6.751,
+    "method": "GET",
+    "path": "/api/confd/1.1/users/{user_uuid}",
+    "status": 200
+  },
+  {
+    "at": 6.882,
+    "method": "GET",
+    "path": "/api/confd/1.1/users/{user_uuid}/lines/{line_id}/associated/endpoints/sip?view=merged",
+    "status": 200
+  }
+]
