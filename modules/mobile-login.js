@@ -107,6 +107,10 @@ async function play(step, session) {
         "X-Auth-Token": session.user.token,
       },
       tags: { name: step.path },
+      // the app gives up after 15 s; k6's default 60 s would pile up waiting
+      // requests on a saturated stack until the load generator runs out of
+      // memory
+      timeout: "15s",
       // a body the replay does not read would only fill the load generator
       responseType: step.provides ? "text" : "none",
       responseCallback: http.expectedStatuses(SUCCESS, step.status),
