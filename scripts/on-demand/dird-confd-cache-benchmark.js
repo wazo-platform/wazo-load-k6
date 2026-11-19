@@ -20,9 +20,6 @@ import {
   buildTermPool,
   coldTerm,
   createBurstGenerator,
-  createRng,
-  deriveSeed,
-  meanBurstSize,
 } from "../../modules/directory-load.js";
 import { createToken } from "../../modules/wazo.js";
 
@@ -89,7 +86,7 @@ const runSeconds = measuredStart + loadSeconds;
 // One iteration is one burst, so the rate is in bursts: a lookup rate in
 // lookups per second divided by the lookups in a burst
 const burstsPerSecond =
-  lookupRate / meanBurstSize(burstOptions.minSize, burstOptions.maxSize);
+  lookupRate / ((burstOptions.minSize + burstOptions.maxSize) / 2);
 const burstsPerMinute = Math.max(1, Math.round(burstsPerSecond * 60));
 const burstVus = {
   preAllocatedVUs: Math.ceil(burstsPerSecond * 5) + 5,
@@ -211,11 +208,8 @@ function headers(token) {
   return { "X-Auth-Token": token, "Wazo-Tenant": tenant };
 }
 
-function get(url, token, name, extraTags) {
-  return http.get(url, {
-    headers: headers(token),
-    tags: { name, ...extraTags },
-  });
+function get(url, token, name) {
+  return http.get(url, { headers: headers(token), tags: { name } });
 }
 
 function lookupRequest(token, entry, name) {
@@ -274,23 +268,8 @@ function sourceUuid(token) {
   return sources[0].uuid;
 }
 
-// Per VU, built on its first iteration from the setup data
-let generator;
-function burstGenerator(data) {
-  if (!generator) {
-    const pool = buildTermPool(
-      data.extens,
-      data.mobiles,
-      poolRatio,
-      burstOptions.seed,
-    );
-    generator = {
-      pool,
-      burst: createBurstGenerator(pool, burstOptions),
-    };
-  }
-  return generator;
-}
+// Per VU, built on its first iteration
+let burst;
 
 export function setup() {
   const runStart = Date.now();
@@ -336,18 +315,17 @@ export function setup() {
   const pool = buildTermPool(extens, mobiles, poolRatio, burstOptions.seed);
   const cold = coldTerm(pool);
   const warm = pool[0];
-  const response = http.batch([
-    lookupRequest(adminToken, warm, "setup-lookup"),
-  ]);
-  checkLookup(response[0], warm);
+  checkLookup(
+    http.request(...lookupRequest(adminToken, warm, "setup-lookup")),
+    warm,
+  );
 
   return {
     runStart,
     tokens,
     uuids,
     source,
-    extens,
-    mobiles,
+    pool,
     cold,
     userCount: users.length,
   };
@@ -357,21 +335,16 @@ export function teardown({ runStart }) {
   // The monitor holds what k6 cannot see: wazo-dird's own requests to
   // wazo-confd, which a cache must lower
   const matcher = `${stackMatcher()},service="wazo-confd"`;
-  const requests = readMonitor(
-    "confd requests",
-    runStart,
-    (window) =>
-      `sum(increase(flask_http_request_duration_seconds_count{${matcher}}[${window}]))`,
-  );
-  const seconds = readMonitor(
-    "confd server time",
-    runStart,
-    (window) =>
-      `sum(increase(flask_http_request_duration_seconds_sum{${matcher}}[${window}]))`,
-  );
-  if (requests && requests.length > 0 && seconds && seconds.length > 0) {
-    const count = Number(requests[0].value[1]);
-    const total = Number(seconds[0].value[1]);
+  const [count, total] = ["count", "sum"].map((stat) => {
+    const result = readMonitor(
+      `confd ${stat}`,
+      runStart,
+      (window) =>
+        `sum(increase(flask_http_request_duration_seconds_${stat}{${matcher}}[${window}]))`,
+    );
+    return result?.[0] ? Number(result[0].value[1]) : NaN;
+  });
+  if (!Number.isNaN(count) && !Number.isNaN(total)) {
     confdRequests.add(count);
     confdServerSeconds.add(total);
     console.log(
@@ -383,15 +356,13 @@ export function teardown({ runStart }) {
 }
 
 // A burst: the lookups of one user, sent at once
-export function lookupBurst(data) {
-  const { burst } = burstGenerator(data);
-  const iteration = exec.scenario.iterationInTest;
-  const userIndex = Math.floor(
-    createRng(deriveSeed(burstOptions.seed, 5, iteration))() *
-      data.tokens.length,
+export function lookupBurst({ pool, tokens }) {
+  burst ??= createBurstGenerator(pool, burstOptions);
+  const { userIndex, entries } = burst(
+    exec.scenario.iterationInTest,
+    tokens.length,
   );
-  const token = data.tokens[userIndex];
-  const entries = burst(iteration, userIndex);
+  const token = tokens[userIndex];
   const responses = http.batch(
     entries.map((entry) => lookupRequest(token, entry, "lookup")),
   );

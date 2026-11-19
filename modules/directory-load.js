@@ -5,34 +5,24 @@
 // and bursts of lookups, one burst for each user. Everything derives from a
 // seed, so two runs send the same requests and compare alike.
 
+import { randomSeed } from "k6";
+
 const STAR_CODES = ["*5024", "*5025", "*8000"];
 
-// A 32-bit generator: small, and the same in k6 and in node
-export function createRng(seed) {
-  let state = seed >>> 0;
-  return function next() {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+// Seeds Math.random for one stream: the pool, a user's list or a burst. A
+// burst reseeds by its iteration, so its terms do not depend on which VU
+// runs it
+const POOL = 0;
+const USER = 1;
+const BURST = 2;
+const CHURN = 3;
+function seedStream(seed, stream, index = 0) {
+  randomSeed(seed * 1e9 + stream * 1e8 + index);
 }
 
-// Each (seed, ...parts) gives its own stream: the terms of an iteration do not
-// depend on which VU runs it
-export function deriveSeed(seed, ...parts) {
-  let hash = seed >>> 0;
-  for (const part of parts) {
-    hash = Math.imul(hash ^ (part >>> 0), 0x9e3779b1) >>> 0;
-    hash ^= hash >>> 15;
-  }
-  return hash >>> 0;
-}
-
-function shuffle(items, rng) {
+function shuffle(items) {
   for (let i = items.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
+    const j = Math.floor(Math.random() * (i + 1));
     [items[i], items[j]] = [items[j], items[i]];
   }
 }
@@ -59,10 +49,10 @@ export function buildTermPool(extens, mobiles, poolRatio, seed) {
     known.add(term);
   }
   const size = Math.round(extens.length * poolRatio);
-  const rng = createRng(deriveSeed(seed, 1));
+  seedStream(seed, POOL);
   let numbers = 0;
   while (pool.length < size) {
-    const term = String(600000000 + Math.floor(rng() * 399999999));
+    const term = String(600000000 + Math.floor(Math.random() * 399999999));
     if (known.has(term) || known.has(`0${term}`)) {
       continue;
     }
@@ -73,7 +63,7 @@ export function buildTermPool(extens, mobiles, poolRatio, seed) {
       pool.push({ term: `0${term}`, hit: false });
     }
   }
-  shuffle(pool, createRng(deriveSeed(seed, 2)));
+  shuffle(pool);
   return pool;
 }
 
@@ -85,8 +75,8 @@ export function createSampler(pool, exponent) {
     total += 1 / Math.pow(rank, exponent);
     cumulative[rank - 1] = total;
   }
-  return function draw(rng) {
-    const target = rng() * total;
+  return function draw() {
+    const target = Math.random() * total;
     let low = 0;
     let high = pool.length - 1;
     while (low < high) {
@@ -101,10 +91,6 @@ export function createSampler(pool, exponent) {
   };
 }
 
-function burstSize(rng, min, max) {
-  return min + Math.floor(rng() * (max - min + 1));
-}
-
 // A user keeps one list of terms and sends it again at each burst, a term
 // changing now and then: a list on a screen that is opened over and over
 export function createBurstGenerator(pool, options) {
@@ -112,33 +98,29 @@ export function createBurstGenerator(pool, options) {
   const draw = createSampler(pool, exponent);
 
   function userList(userIndex) {
-    const rng = createRng(deriveSeed(seed, 3, userIndex));
-    const list = [];
-    const size = burstSize(rng, minSize, maxSize);
-    for (let i = 0; i < size; i++) {
-      list.push(draw(rng));
-    }
-    return list;
+    seedStream(seed, USER, userIndex);
+    const size = minSize + Math.floor(Math.random() * (maxSize - minSize + 1));
+    return Array.from({ length: size }, draw);
   }
 
-  return function burst(iteration, userIndex) {
-    const rng = createRng(deriveSeed(seed, 4, iteration));
-    return userList(userIndex).map((entry) =>
-      rng() < churn ? draw(rng) : entry,
+  // The burst of one iteration: which user sends it, and its terms
+  return function burst(iteration, userCount) {
+    seedStream(seed, BURST, iteration);
+    const userIndex = Math.floor(Math.random() * userCount);
+    const list = userList(userIndex);
+    seedStream(seed, CHURN, iteration);
+    const entries = list.map((entry) =>
+      Math.random() < churn ? draw() : entry,
     );
+    return { userIndex, entries };
   };
-}
-
-export function meanBurstSize(minSize, maxSize) {
-  return (minSize + maxSize) / 2;
 }
 
 // The least popular hit: nobody has asked for it when a run starts
 export function coldTerm(pool) {
-  for (let i = pool.length - 1; i >= 0; i--) {
-    if (pool[i].hit) {
-      return pool[i];
-    }
+  const term = pool.findLast((entry) => entry.hit);
+  if (!term) {
+    throw new Error("no hit term in the pool");
   }
-  throw new Error("no hit term in the pool");
+  return term;
 }

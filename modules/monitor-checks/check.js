@@ -84,18 +84,8 @@ function prepareOnce() {
   record("exporter down", query("exporter down", `up{${stackMatcher()}} == 0`));
 }
 
-// buildQuery gets the run window and returns the series breaking the check
-export function checkMonitor(name, runStart, buildQuery) {
-  prepareOnce();
-  if (!prometheus) {
-    return;
-  }
-  const window = `${Math.ceil((Date.now() - runStart) / 1000)}s`;
-  record(name, query(name, buildQuery(window)));
-}
-
 // For figures a script reports rather than judges: null when the monitor is
-// not set
+// not set. buildQuery gets the run window and returns the promql
 export function readMonitor(name, runStart, buildQuery) {
   prepareOnce();
   if (!prometheus) {
@@ -103,4 +93,12 @@ export function readMonitor(name, runStart, buildQuery) {
   }
   const window = `${Math.ceil((Date.now() - runStart) / 1000)}s`;
   return query(name, buildQuery(window));
+}
+
+// buildQuery gets the run window and returns the series breaking the check
+export function checkMonitor(name, runStart, buildQuery) {
+  const failures = readMonitor(name, runStart, buildQuery);
+  if (failures) {
+    record(name, failures);
+  }
 }

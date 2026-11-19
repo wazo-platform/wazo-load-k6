@@ -243,9 +243,7 @@ Optional:
 | `DIRD_PROFILE`, `SOURCE_NAME`     | `default`, first  | the dird profile and the `wazo` source                |
 
 All tokens belong to the admin account, so wazo-auth sees fewer distinct users
-than a fleet of phones would give it. `contrib/dird-confd-benchmark/` holds a
-stub engine to check the script runs, `smoke.sh`, and a self-check of the term
-and burst generator, `node contrib/dird-confd-benchmark/generator-check.mjs`.
+than a fleet of phones would give it.
 
 ## Monitor checks
 
