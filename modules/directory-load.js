@@ -1,17 +1,13 @@
 // Copyright 2026 The Wazo Authors  (see the AUTHORS file)
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Directory lookup traffic: a pool of numeric terms with a Zipf popularity,
-// and bursts of lookups, one burst for each user. Everything derives from a
-// seed, so two runs send the same requests and compare alike.
+// Seeded lookup traffic: a Zipf-weighted term pool and per-user bursts
 
 import { randomSeed } from "k6";
 
 const STAR_CODES = ["*5024", "*5025", "*8000"];
 
-// Seeds Math.random for one stream: the pool, a user's list or a burst. A
-// burst reseeds by its iteration, so its terms do not depend on which VU
-// runs it
+// Reseeding per iteration keeps a burst independent of the VU running it
 const POOL = 0;
 const USER = 1;
 const BURST = 2;
@@ -27,12 +23,8 @@ function shuffle(items) {
   }
 }
 
-// Hits are what the dataset holds: the extensions and, when users have them,
-// the mobile numbers and the mobile numbers without their leading 0 for every
-// second user. Misses are star codes and 9-digit numbers nobody holds, each
-// second one also with a leading 0: the lookups of callers outside the
-// directory, which a stack whose users have no mobile number is made of. The
-// order is shuffled, so the popular terms are not tied to the user order.
+// Hits: extensions, mobiles, and every second mobile without its leading 0.
+// Misses: star codes and unknown 9-digit numbers, half also with a leading 0.
 export function buildTermPool(extens, mobiles, poolRatio, seed) {
   const hits = new Set(extens);
   mobiles.forEach((mobile, index) => {
@@ -91,8 +83,7 @@ export function createSampler(pool, exponent) {
   };
 }
 
-// A user keeps one list of terms and sends it again at each burst, a term
-// changing now and then: a list on a screen that is opened over and over
+// Each user resends one list of terms, a few replaced at each burst
 export function createBurstGenerator(pool, options) {
   const { exponent, churn, minSize, maxSize, seed } = options;
   const draw = createSampler(pool, exponent);
@@ -103,7 +94,6 @@ export function createBurstGenerator(pool, options) {
     return Array.from({ length: size }, draw);
   }
 
-  // The burst of one iteration: which user sends it, and its terms
   return function burst(iteration, userCount) {
     seedStream(seed, BURST, iteration);
     const userIndex = Math.floor(Math.random() * userCount);
@@ -116,7 +106,7 @@ export function createBurstGenerator(pool, options) {
   };
 }
 
-// The least popular hit: nobody has asked for it when a run starts
+// The least popular hit, for a cold-cache lookup
 export function coldTerm(pool) {
   const term = pool.findLast((entry) => entry.hit);
   if (!term) {

@@ -1,11 +1,8 @@
 // Copyright 2026 The Wazo Authors  (see the AUTHORS file)
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Directory lookups in bursts and the unfiltered listing of the `wazo` source,
-// with a direct latency probe of wazo-confd beside them: what wazo-dird asks
-// of wazo-confd, and what a cache of the confd users changes. Run it once for
-// each variant of the stack, with ARM naming it (see the README). The terms
-// come from the users of WAZO_TENANT, which setup() reads from wazo-confd.
+// Lookup bursts, `wazo` source listing and a confd probe, run once per stack
+// variant to compare the confd caches (see the README)
 
 import exec from "k6/execution";
 import http from "k6/http";
@@ -39,10 +36,9 @@ if (!["steady", "smoke", "ramp"].includes(loadProfile)) {
 }
 const smoke = loadProfile === "smoke";
 
-// What names the variant of the stack under test; the operator sets the stack
+// Labels the stack variant under test
 const arm = __ENV.ARM;
-// A/B runs compare variants: one that is slower than the budgets must still
-// report its numbers
+// Budgets never fail, so a slow variant still reports
 const reportOnly = __ENV.AB_MODE === "report";
 
 const lookupRate = Number(__ENV.LOOKUP_RATE || (smoke ? 3 : 15));
@@ -71,7 +67,7 @@ const USERS_PAGE = 1000;
 const STAMPEDE_SECONDS = 10;
 const GRACEFUL_STOP_SECONDS = 5;
 const RAMP_STEP_SECONDS = Number(__ENV.RAMP_STEP_SECONDS || 60);
-// Shares of LOOKUP_RATE, one step each: the knee is where a step leaves budget
+// Shares of LOOKUP_RATE, one ramp step each
 const RAMP_SHARES = [0.2, 0.5, 1, 1.5, 2, 3];
 // Tokens outlive the run, setup and teardown
 const TOKEN_MARGIN_SECONDS = 300;
@@ -83,8 +79,7 @@ const loadSeconds =
 const measuredStart = STAMPEDE_SECONDS + warmupSeconds + GRACEFUL_STOP_SECONDS;
 const runSeconds = measuredStart + loadSeconds;
 
-// One iteration is one burst, so the rate is in bursts: a lookup rate in
-// lookups per second divided by the lookups in a burst
+// One iteration is one burst
 const burstsPerSecond =
   lookupRate / ((burstOptions.minSize + burstOptions.maxSize) / 2);
 const burstsPerMinute = Math.max(1, Math.round(burstsPerSecond * 60));
@@ -121,7 +116,7 @@ const steadyLookup =
         startTime: `${measuredStart}s`,
       });
 
-// Same load as the steady phase, measured apart: the cold-cache numbers
+// Same rate as steady, measured apart: the cold-cache numbers
 const warmupLookup = lookupScenario({
   executor: "constant-arrival-rate",
   rate: burstsPerMinute,
@@ -136,9 +131,7 @@ const wholeRun = {
   gracefulStop: `${GRACEFUL_STOP_SECONDS}s`,
 };
 
-// Latency budgets, sized for a 4 vCPU / 16 GiB stack (AWS t3.xlarge). In
-// report mode they always hold, which still lists the sub-metrics in the
-// summary; only the health of the generator and of the stack gates the run
+// Latency budgets, sized for a 4 vCPU / 16 GiB stack (AWS t3.xlarge)
 function budget(metric, limits) {
   return [metric, reportOnly ? ["p(95)>=0"] : limits];
 }
@@ -233,7 +226,7 @@ function checkLookup(response, entry) {
   });
 }
 
-// Every user of the tenant, as wazo-dird sees them: the directory view
+// All tenant users, in the view wazo-dird uses
 function listDirectoryUsers(token) {
   const users = [];
   let total;
@@ -268,7 +261,6 @@ function sourceUuid(token) {
   return sources[0].uuid;
 }
 
-// Per VU, built on its first iteration
 let burst;
 
 export function setup() {
@@ -299,8 +291,7 @@ export function setup() {
     );
   }
 
-  // Each token is one user of the burst model. They all belong to the admin
-  // account: wazo-auth sees fewer distinct users than in production
+  // All tokens are the admin's: wazo-auth sees fewer users than in production
   const tokens = [adminToken];
   while (tokens.length < tokenCount) {
     tokens.push(
@@ -309,8 +300,7 @@ export function setup() {
   }
   const uuids = users.slice(0, 100).map((user) => user.uuid);
 
-  // dird loads its sources on the first request, and the pool is the same for
-  // every VU: the first lookup is not the load
+  // dird loads its sources on the first request: keep it out of the load
   const source = sourceUuid(adminToken);
   const pool = buildTermPool(extens, mobiles, poolRatio, burstOptions.seed);
   const cold = coldTerm(pool);
@@ -332,8 +322,7 @@ export function setup() {
 }
 
 export function teardown({ runStart }) {
-  // The monitor holds what k6 cannot see: wazo-dird's own requests to
-  // wazo-confd, which a cache must lower
+  // dird's own confd requests, which k6 cannot see
   const matcher = `${stackMatcher()},service="wazo-confd"`;
   const [count, total] = ["count", "sum"].map((stat) => {
     const result = readMonitor(
@@ -355,7 +344,7 @@ export function teardown({ runStart }) {
   checkStackInvariants(runStart);
 }
 
-// A burst: the lookups of one user, sent at once
+// One user's lookups, sent at once
 export function lookupBurst({ pool, tokens }) {
   burst ??= createBurstGenerator(pool, burstOptions);
   const { userIndex, entries } = burst(
@@ -369,13 +358,13 @@ export function lookupBurst({ pool, tokens }) {
   responses.forEach((response, i) => checkLookup(response, entries[i]));
 }
 
-// Many users asking for the same term nobody has asked for yet
+// Concurrent lookups of a term nobody asked for yet
 export function stampede({ tokens, cold }) {
   const response = http.batch([lookupRequest(tokens[0], cold, "stampede")])[0];
   checkLookup(response, cold);
 }
 
-// The unfiltered listing, as the mobile app sends it: no limit
+// Unfiltered listing, as the mobile app sends it
 export function listing({ tokens, source, userCount }) {
   const token = tokens[exec.scenario.iterationInTest % tokens.length];
   const response = get(
@@ -391,7 +380,7 @@ export function listing({ tokens, source, userCount }) {
   });
 }
 
-// Other confd callers: their latency is what dird's load costs them
+// Direct confd calls: what dird's load costs other callers
 export function confdProbe({ tokens, uuids }) {
   const iteration = exec.scenario.iterationInTest;
   const token = tokens[0];

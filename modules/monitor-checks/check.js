@@ -84,8 +84,7 @@ function prepareOnce() {
   record("exporter down", query("exporter down", `up{${stackMatcher()}} == 0`));
 }
 
-// For figures a script reports rather than judges: null when the monitor is
-// not set. buildQuery gets the run window and returns the promql
+// The query result over the run, or null without a monitor
 export function readMonitor(name, runStart, buildQuery) {
   prepareOnce();
   if (!prometheus) {
