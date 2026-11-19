@@ -177,20 +177,20 @@ Required:
 
 Optional:
 
-| Variable                 | Default               | Meaning                                    |
-| ------------------------ | --------------------- | ------------------------------------------ |
-| `USERS`                  | `5000`                | users registering a push token             |
-| `SESSIONS`               | `USERS`               | those of them holding a websocket          |
-| `USERNAME_TEMPLATE`      | `dev+user{i}@wazo.io` | existing users, `{i}` from 0               |
-| `USER_PASSWORD`          | `secret`              | their password, or the created users' one  |
-| `CREATE_USERS`           | `false`               | `true` to create `load-bindings-{i}` users |
-| `SETTLE_SECONDS`         | `60`                  | wait before the first sessions open        |
-| `RAMP_STEPS`             | `10`                  | steps opening the sessions                 |
-| `STEP_SECONDS`           | `60`                  | time between steps                         |
-| `HOLD_SECONDS`           | `120`                 | time with every session open               |
-| `SESSIONS_PER_VU`        | `50`                  | sessions each k6 VU holds                  |
-| `PROBE_SESSIONS`         | `100`                 | first sessions probing                     |
-| `PROBE_INTERVAL_SECONDS` | `10`                  | time between a session's probes            |
+| Variable                 | Default                 | Meaning                                    |
+| ------------------------ | ----------------------- | ------------------------------------------ |
+| `USERS`                  | `5000`                  | users registering a push token             |
+| `SESSIONS`               | `3000`, at most `USERS` | those of them holding a websocket          |
+| `USERNAME_TEMPLATE`      | `dev+user{i}@wazo.io`   | existing users, `{i}` from 0               |
+| `USER_PASSWORD`          | `secret`                | their password, or the created users' one  |
+| `CREATE_USERS`           | `false`                 | `true` to create `load-bindings-{i}` users |
+| `SETTLE_SECONDS`         | `60`                    | wait before the first sessions open        |
+| `RAMP_STEPS`             | `10`                    | steps opening the sessions                 |
+| `STEP_SECONDS`           | `60`                    | time between steps                         |
+| `HOLD_SECONDS`           | `120`                   | time with every session open               |
+| `SESSIONS_PER_VU`        | `50`                    | sessions each k6 VU holds                  |
+| `PROBE_SESSIONS`         | `100`                   | first sessions probing                     |
+| `PROBE_INTERVAL_SECONDS` | `10`                    | time between a session's probes            |
 
 ## Mobile traffic profile
 

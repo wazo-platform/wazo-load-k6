@@ -31,7 +31,7 @@ if (createUsers && !tenant) {
 }
 
 const users = Number(__ENV.USERS || 5000);
-const sessions = Number(__ENV.SESSIONS || users);
+const sessions = Number(__ENV.SESSIONS || Math.min(users, 3000));
 if (sessions < 1 || sessions > users) {
   throw new Error(
     `SESSIONS (${sessions}) must be between 1 and USERS (${users})`,
