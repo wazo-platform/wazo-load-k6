@@ -84,12 +84,20 @@ function prepareOnce() {
   record("exporter down", query("exporter down", `up{${stackMatcher()}} == 0`));
 }
 
-// buildQuery gets the run window and returns the series breaking the check
-export function checkMonitor(name, runStart, buildQuery) {
+// The query result over the run, or null without a monitor
+export function readMonitor(name, runStart, buildQuery) {
   prepareOnce();
   if (!prometheus) {
-    return;
+    return null;
   }
   const window = `${Math.ceil((Date.now() - runStart) / 1000)}s`;
-  record(name, query(name, buildQuery(window)));
+  return query(name, buildQuery(window));
+}
+
+// buildQuery gets the run window and returns the series breaking the check
+export function checkMonitor(name, runStart, buildQuery) {
+  const failures = readMonitor(name, runStart, buildQuery);
+  if (failures) {
+    record(name, failures);
+  }
 }
