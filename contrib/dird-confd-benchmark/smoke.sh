@@ -23,15 +23,6 @@ node "$here/stub-server.mjs" "$work/key.pem" "$work/cert.pem" "$port" &
 stub_pid=$!
 sleep 1
 
-if [ "${SEED_CHECK:-}" = 1 ]; then
-  "${K6:-k6}" run \
-    --env WAZO_ENGINE="127.0.0.1:$port" \
-    --env WAZO_ADMIN_USERNAME=root --env WAZO_ADMIN_PASSWORD=secret \
-    --env WAZO_TENANT=00000000-0000-0000-0000-000000000000 \
-    --env USERS=450 \
-    "$root/scripts/on-demand/seed-directory-users.js"
-fi
-
 "${K6:-k6}" run \
   --env WAZO_ENGINE="127.0.0.1:$port" \
   --env WAZO_ADMIN_USERNAME=root --env WAZO_ADMIN_PASSWORD=secret \

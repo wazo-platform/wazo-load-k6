@@ -162,23 +162,21 @@ in bursts, the unfiltered listing of the `wazo` source (no `limit`, so confd
 returns every user), and a direct latency probe of confd beside them. It is
 meant to be run once for each variant of the stack and the numbers compared.
 
-It needs a tenant with at least `USERS_MIN` users (4500) that have an
-extension and a mobile number, and a `wazo` source in wazo-dird.
-`scripts/on-demand/seed-directory-users.js` creates the users with the confd
-users import. Use a tenant made for the test: both scripts read and create
-real directory data, and clean nothing up.
+It uses the users the stack already has: `setup()` lists the users of
+`WAZO_TENANT` once through wazo-confd (read only), prints their count, and
+builds the lookup terms from their extensions and, when they have one, their
+mobile numbers. On the load stack, which
+[wazo-load-tools](https://github.com/wazo-platform/wazo-load-tools) fills, the
+users have the extensions from 10000 up, the index as last name and no mobile
+number, so the terms that are not extensions are numbers the directory does
+not hold. `WAZO_TENANT` is the tenant the load tools created; its UUID is the
+`tenant_uuid` of their `config.yml`. A stack with fewer than `USERS_EXPECTED`
+users still runs, with a warning. It also needs a `wazo` source in wazo-dird.
+The run reads directory data and creates nothing.
 
-```sh
-docker run --rm \
-  --env WAZO_ENGINE=engine.example.com \
-  --env WAZO_ADMIN_USERNAME=root --env WAZO_ADMIN_PASSWORD=secret \
-  --env WAZO_TENANT=9d283e05-6b2f-46b4-bca5-1c2558dbcb53 \
-  wazoplatform/wazo-load-k6 run /scripts/on-demand/seed-directory-users.js
-```
-
-Then, for each variant, set the stack to that state, restart wazo-dird (and
-clear the nginx cache, `/var/cache/nginx/wazo-confd-users`, with a reload of
-nginx), so the run starts cold, and run:
+For each variant, set the stack to that state, restart wazo-dird (and clear
+the nginx cache, `/var/cache/nginx/wazo-confd-users`, with a reload of nginx),
+so the run starts cold, and run:
 
 ```sh
 docker run --rm \
@@ -238,7 +236,7 @@ Optional:
 | `WARMUP_SECONDS`                  | `60`              | cold-cache phase                                      |
 | `DURATION_SECONDS`                | `300`             | steady phase                                          |
 | `TOKENS`                          | `100`             | users of the burst model                              |
-| `USERS_MIN`                       | `4500`            | users the tenant must have                            |
+| `USERS_EXPECTED`                  | `4500`            | fewer users than this only gives a warning            |
 | `POOL_RATIO`, `ZIPF_EXPONENT`     | `2.75`, `0.7`     | size and skew of the term pool                        |
 | `CHURN`, `BURST_MIN`, `BURST_MAX` | `0.25`, `7`, `12` | how a user's list changes, and its size               |
 | `SEED`                            | `1`               | same seed, same requests                              |

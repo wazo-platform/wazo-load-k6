@@ -24,25 +24,42 @@ const OPTIONS = {
   seed: 1,
 };
 
+// The users of the load stack: an extension each, no mobile number
 const extens = Array.from({ length: USERS }, (_, i) => String(10000 + i));
-const mobiles = Array.from(
-  { length: USERS },
-  (_, i) => `0${600000000 + i * 37}`,
-);
+const mobiles = [];
 
 const pool = buildTermPool(extens, mobiles, POOL_RATIO, OPTIONS.seed);
 
-// The pool holds every extension and mobile number, and has the asked size
+// The pool has the asked size and every extension; the rest are misses, some
+// of them with a leading 0 next to the same number without it
 assert.equal(pool.length, Math.round(USERS * POOL_RATIO));
 const terms = new Set(pool.map((entry) => entry.term));
 assert.equal(terms.size, pool.length, "terms are unique");
 for (const exten of extens) {
   assert.ok(terms.has(exten), `extension ${exten} is a term`);
 }
-assert.ok(terms.has(mobiles[0]) && terms.has(mobiles[0].slice(1)));
+assert.equal(pool.filter((entry) => entry.hit).length, USERS);
 assert.ok(pool.some((entry) => entry.term.startsWith("*") && !entry.hit));
-const misses = pool.filter((entry) => !entry.hit).length;
-assert.ok(misses > USERS / 8 && misses < USERS / 2, `${misses} misses`);
+const numbers = pool.filter((entry) => /^\d{9,10}$/.test(entry.term));
+assert.equal(numbers.length, pool.length - USERS - 3);
+assert.ok(numbers.every((entry) => !entry.hit));
+assert.ok(
+  numbers.filter(
+    (entry) => entry.term.startsWith("0") && terms.has(entry.term.slice(1)),
+  ).length >
+    USERS / 2,
+  "leading-0 twins",
+);
+
+// Users that have a mobile number add hits, with the variant of every second
+const mobilePool = buildTermPool(
+  extens,
+  extens.map((exten) => `0${600000000 + Number(exten)}`),
+  POOL_RATIO,
+  OPTIONS.seed,
+);
+assert.equal(mobilePool.length, Math.round(USERS * POOL_RATIO));
+assert.ok(mobilePool.filter((entry) => entry.hit).length > USERS * 2);
 
 // The same seed gives the same pool; another seed gives another order
 const again = buildTermPool(extens, mobiles, POOL_RATIO, OPTIONS.seed);

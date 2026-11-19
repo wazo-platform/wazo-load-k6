@@ -37,11 +37,12 @@ function shuffle(items, rng) {
   }
 }
 
-// Hits are what the dataset holds: the extensions, the mobile numbers, and
-// the mobile numbers without their leading 0 for every second user. Misses
-// are numbers nobody holds and star codes, the lookups of callers outside the
-// directory. The order is shuffled, so the popular terms are not tied to the
-// user order.
+// Hits are what the dataset holds: the extensions and, when users have them,
+// the mobile numbers and the mobile numbers without their leading 0 for every
+// second user. Misses are star codes and 9-digit numbers nobody holds, each
+// second one also with a leading 0: the lookups of callers outside the
+// directory, which a stack whose users have no mobile number is made of. The
+// order is shuffled, so the popular terms are not tied to the user order.
 export function buildTermPool(extens, mobiles, poolRatio, seed) {
   const hits = new Set(extens);
   mobiles.forEach((mobile, index) => {
@@ -59,11 +60,17 @@ export function buildTermPool(extens, mobiles, poolRatio, seed) {
   }
   const size = Math.round(extens.length * poolRatio);
   const rng = createRng(deriveSeed(seed, 1));
+  let numbers = 0;
   while (pool.length < size) {
     const term = String(600000000 + Math.floor(rng() * 399999999));
-    if (!known.has(term) && !known.has(`0${term}`)) {
-      known.add(term);
-      pool.push({ term, hit: false });
+    if (known.has(term) || known.has(`0${term}`)) {
+      continue;
+    }
+    known.add(term);
+    known.add(`0${term}`);
+    pool.push({ term, hit: false });
+    if (numbers++ % 2 === 0 && pool.length < size) {
+      pool.push({ term: `0${term}`, hit: false });
     }
   }
   shuffle(pool, createRng(deriveSeed(seed, 2)));

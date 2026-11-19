@@ -4,7 +4,8 @@
 // Directory lookups in bursts and the unfiltered listing of the `wazo` source,
 // with a direct latency probe of wazo-confd beside them: what wazo-dird asks
 // of wazo-confd, and what a cache of the confd users changes. Run it once for
-// each variant of the stack, with ARM naming it (see the README).
+// each variant of the stack, with ARM naming it (see the README). The terms
+// come from the users of WAZO_TENANT, which setup() reads from wazo-confd.
 
 import exec from "k6/execution";
 import http from "k6/http";
@@ -54,7 +55,7 @@ const warmupSeconds = Number(__ENV.WARMUP_SECONDS || (smoke ? 5 : 60));
 const durationSeconds = Number(__ENV.DURATION_SECONDS || (smoke ? 15 : 300));
 const stampedeVus = Number(__ENV.STAMPEDE_VUS || (smoke ? 10 : 50));
 const tokenCount = Number(__ENV.TOKENS || (smoke ? 10 : 100));
-const usersMin = Number(__ENV.USERS_MIN || 4500);
+const usersExpected = Number(__ENV.USERS_EXPECTED || 4500);
 const poolRatio = Number(__ENV.POOL_RATIO || 2.75);
 const burstOptions = {
   exponent: Number(__ENV.ZIPF_EXPONENT || 0.7),
@@ -301,18 +302,22 @@ export function setup() {
     expiration,
   ).token;
   const users = listDirectoryUsers(adminToken);
-  if (users.length < usersMin) {
-    throw new Error(
-      `${users.length} users in tenant ${tenant}, ${usersMin} needed: ` +
-        "run scripts/on-demand/seed-directory-users.js or lower USERS_MIN",
-    );
-  }
   const extens = users.filter((user) => user.exten).map((user) => user.exten);
   const mobiles = users
     .filter((user) => user.mobile_phone_number)
     .map((user) => user.mobile_phone_number);
   if (extens.length === 0) {
     throw new Error(`no extension to look up in tenant ${tenant}`);
+  }
+  console.log(
+    `tenant ${tenant}: ${users.length} users, ${extens.length} with an ` +
+      `extension, ${mobiles.length} with a mobile number`,
+  );
+  if (users.length < usersExpected) {
+    console.warn(
+      `${users.length} users, fewer than the ${usersExpected} expected: ` +
+        "the cache hit rates will be higher than on a full directory",
+    );
   }
 
   // Each token is one user of the burst model. They all belong to the admin

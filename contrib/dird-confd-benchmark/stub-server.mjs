@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Stand-in for the engine, to check that dird-confd-cache-benchmark.js runs end
-// to end: wazo-auth, wazo-confd, wazo-dird and a Prometheus, over TLS. It
-// proves the script and its metrics, not the performance of a real stack.
+// to end: wazo-auth, wazo-confd, wazo-dird and a Prometheus, over TLS. Its
+// users are those of the load stack: no mobile number, the extension from
+// 10000, the index as last name. It proves the script and its metrics, not the
+// performance of a real stack.
 //   node stub-server.mjs <key.pem> <cert.pem> [port]
 // STUB_USERS (default 4500) and STUB_LATENCY_MS (default 20) tune it.
 
@@ -22,10 +24,10 @@ const latencyMs = Number(process.env.STUB_LATENCY_MS || 20);
 const users = Array.from({ length: userCount }, (_, i) => ({
   id: i + 1,
   uuid: randomUUID(),
-  firstname: "Load",
-  lastname: `User${i}`,
+  firstname: "User",
+  lastname: String(i),
   exten: String(10000 + i),
-  mobile_phone_number: `0${600000000 + i * 37}`,
+  email: `dev+user${i}@example.com`,
 }));
 const sourceUuid = randomUUID();
 const counts = new Map();
@@ -57,32 +59,7 @@ function prometheus(query) {
   return [];
 }
 
-// Fields of a CSV line, quotes and doubled quotes included
-function csvFieldCount(line) {
-  let fields = 1;
-  let quoted = false;
-  for (const char of line) {
-    if (char === '"') {
-      quoted = !quoted;
-    } else if (char === "," && !quoted) {
-      fields += 1;
-    }
-  }
-  return fields;
-}
-
-function importUsers(body, response) {
-  const [header, ...rows] = body.trim().split("\n");
-  const expected = csvFieldCount(header);
-  const bad = rows.findIndex((row) => csvFieldCount(row) !== expected);
-  if (bad >= 0) {
-    return reply(response, 400, { message: `row ${bad}: wrong field count` });
-  }
-  count("imported");
-  return reply(response, 201, { created: rows.map((_, i) => ({ row: i })) });
-}
-
-function route(request, response, body) {
+function route(request, response) {
   const url = new URL(request.url, `https://${request.headers.host}`);
   const path = url.pathname;
   const params = url.searchParams;
@@ -92,12 +69,6 @@ function route(request, response, body) {
       status: "success",
       data: { result: prometheus(params.get("query") ?? "") },
     });
-  }
-  if (path === "/api/confd/1.1/contexts" && request.method === "POST") {
-    return reply(response, 201, { name: JSON.parse(body).label });
-  }
-  if (path === "/api/confd/1.1/users/import") {
-    return importUsers(body, response);
   }
   if (path === "/api/auth/0.1/token") {
     return reply(response, 200, { data: { token: randomUUID() } });
@@ -126,9 +97,7 @@ function route(request, response, body) {
     count("confd");
     const term = params.get("term") ?? "";
     const results = users
-      .filter(
-        (u) => u.exten.includes(term) || u.mobile_phone_number.includes(term),
-      )
+      .filter((u) => u.exten.includes(term) || u.lastname.includes(term))
       .slice(0, 20);
     return reply(response, 200, { term, results });
   }
@@ -147,16 +116,10 @@ function route(request, response, body) {
 const server = createServer(
   { key: readFileSync(keyFile), cert: readFileSync(certFile) },
   (request, response) => {
-    let body = "";
-    request.on("data", (chunk) => {
-      body += chunk;
-    });
-    request.on("end", () => {
-      setTimeout(
-        () => route(request, response, body),
-        latencyMs * (0.5 + Math.random()),
-      );
-    });
+    setTimeout(
+      () => route(request, response),
+      latencyMs * (0.5 + Math.random()),
+    );
   },
 );
 
