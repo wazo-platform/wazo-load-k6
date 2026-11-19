@@ -93,3 +93,14 @@ export function checkMonitor(name, runStart, buildQuery) {
   const window = `${Math.ceil((Date.now() - runStart) / 1000)}s`;
   record(name, query(name, buildQuery(window)));
 }
+
+// For figures a script reports rather than judges: null when the monitor is
+// not set
+export function readMonitor(name, runStart, buildQuery) {
+  prepareOnce();
+  if (!prometheus) {
+    return null;
+  }
+  const window = `${Math.ceil((Date.now() - runStart) / 1000)}s`;
+  return query(name, buildQuery(window));
+}

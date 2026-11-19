@@ -154,6 +154,101 @@ Required by every benchmark:
   requests. Needs `confd.users.read`, `dird.directories.lookup.#` and
   `dird.directories.reverse.#`.
 
+## Directory cache benchmark
+
+`scripts/on-demand/dird-confd-cache-benchmark.js` measures what wazo-dird asks
+of wazo-confd and what a cache of the confd users changes: directory lookups
+in bursts, the unfiltered listing of the `wazo` source (no `limit`, so confd
+returns every user), and a direct latency probe of confd beside them. It is
+meant to be run once for each variant of the stack and the numbers compared.
+
+It needs a tenant with at least `USERS_MIN` users (4500) that have an
+extension and a mobile number, and a `wazo` source in wazo-dird.
+`scripts/on-demand/seed-directory-users.js` creates the users with the confd
+users import. Use a tenant made for the test: both scripts read and create
+real directory data, and clean nothing up.
+
+```sh
+docker run --rm \
+  --env WAZO_ENGINE=engine.example.com \
+  --env WAZO_ADMIN_USERNAME=root --env WAZO_ADMIN_PASSWORD=secret \
+  --env WAZO_TENANT=9d283e05-6b2f-46b4-bca5-1c2558dbcb53 \
+  wazoplatform/wazo-load-k6 run /scripts/on-demand/seed-directory-users.js
+```
+
+Then, for each variant, set the stack to that state, restart wazo-dird (and
+clear the nginx cache, `/var/cache/nginx/wazo-confd-users`, with a reload of
+nginx), so the run starts cold, and run:
+
+```sh
+docker run --rm \
+  --env WAZO_ENGINE=engine.example.com \
+  --env WAZO_ADMIN_USERNAME=root --env WAZO_ADMIN_PASSWORD=secret \
+  --env WAZO_TENANT=9d283e05-6b2f-46b4-bca5-1c2558dbcb53 \
+  --env ARM=baseline --env AB_MODE=report \
+  wazoplatform/wazo-load-k6 run --summary-export /tmp/baseline.json \
+  /scripts/on-demand/dird-confd-cache-benchmark.js
+```
+
+| `ARM`      | State of the stack                                                |
+| ---------- | ----------------------------------------------------------------- |
+| `baseline` | the release as it is                                              |
+| `nginx`    | nginx cache on, the `wazo` source `confd.port` set to 9487        |
+| `dird-ttl` | wazo-dird build with the user TTL cache, and its configuration on |
+| `both`     | both                                                              |
+
+`ARM` only labels the run: k6 tags every metric with `arm`. With
+`AB_MODE=report` the latency budgets always hold, so a variant slower than
+its budgets still prints its numbers; unset, a run that leaves them fails.
+
+Each run has five scenarios:
+
+- `stampede`: `STAMPEDE_VUS` identical lookups at once, for a term nobody has
+  asked for yet. With a cache that collapses concurrent requests, confd sees
+  one request.
+- `lookup-warmup` and `lookup`: bursts of 7 to 12 lookups, one burst for each
+  user, at `LOOKUP_RATE` lookups per second. The terms are numbers drawn from
+  a Zipf popularity over a pool sized from the users, as the lookups of the
+  mobile app were. `lookup-warmup` is the cold-cache phase and `lookup` the
+  steady phase, so the summary shows both.
+- `listing`: the unfiltered listing of the source, `LISTING_RATE` a minute.
+- `confd-probe`: `GET /users/{uuid}` and `GET /users?limit=1` straight on
+  confd, `PROBE_RATE` a second. Their latency is what the load of wazo-dird
+  costs the other callers of confd. The probes use the public nginx location,
+  which the cache does not serve.
+
+With `MONITOR_CHECKS_PROMETHEUS_URL` and a `testid` tag (see the monitor
+checks below), `teardown()` also reports the requests and the server time of
+wazo-confd over the run (`confd_requests`, `confd_server_seconds`): the
+figures a cache has to lower, which k6 cannot see. The `X-Cache-Status` of
+nginx is in `/var/log/nginx/wazo-internal.access.log` on the stack.
+
+Is the generator the bottleneck? `dropped_iterations` must be 0 and
+`http_req_blocked` is bounded by thresholds. Run k6 on another host than the
+stack, and watch its CPU.
+
+Optional:
+
+| Variable                          | Default           | Meaning                                               |
+| --------------------------------- | ----------------- | ----------------------------------------------------- |
+| `LOAD_PROFILE`                    | `steady`          | `smoke` (short), `steady`, or `ramp` (finds the knee) |
+| `LOOKUP_RATE`                     | `15`              | lookups per second                                    |
+| `LISTING_RATE`                    | `15`              | listings a minute                                     |
+| `PROBE_RATE`                      | `2`               | confd probes a second                                 |
+| `WARMUP_SECONDS`                  | `60`              | cold-cache phase                                      |
+| `DURATION_SECONDS`                | `300`             | steady phase                                          |
+| `TOKENS`                          | `100`             | users of the burst model                              |
+| `USERS_MIN`                       | `4500`            | users the tenant must have                            |
+| `POOL_RATIO`, `ZIPF_EXPONENT`     | `2.75`, `0.7`     | size and skew of the term pool                        |
+| `CHURN`, `BURST_MIN`, `BURST_MAX` | `0.25`, `7`, `12` | how a user's list changes, and its size               |
+| `SEED`                            | `1`               | same seed, same requests                              |
+| `DIRD_PROFILE`, `SOURCE_NAME`     | `default`, first  | the dird profile and the `wazo` source                |
+
+All tokens belong to the admin account, so wazo-auth sees fewer distinct users
+than a fleet of phones would give it. `contrib/dird-confd-benchmark/` holds a
+stub engine to check the script runs, `smoke.sh`, and a self-check of the term
+and burst generator, `node contrib/dird-confd-benchmark/generator-check.mjs`.
+
 ## Monitor checks
 
 Thresholds judge what the generator sees. What only the monitoring shows is

@@ -4,9 +4,9 @@
 import encoding from "k6/encoding";
 import http from "k6/http";
 
-export function createToken(engine, username, password) {
+export function createToken(engine, username, password, expiration = 600) {
   const credentials = encoding.b64encode(`${username}:${password}`);
-  const body = JSON.stringify({ backend: "wazo_user", expiration: 600 });
+  const body = JSON.stringify({ backend: "wazo_user", expiration });
   const response = http.post(`https://${engine}/api/auth/0.1/token`, body, {
     headers: {
       "Content-Type": "application/json",
