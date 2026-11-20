@@ -140,8 +140,17 @@ It reports, per number of sessions open (`sessions` tag):
   time the update event wazo-auth sends back through the bus; the probe rate
   stays the same while the other sessions open
 - `bus_event_lost`: probe events still missing when the next probe goes
+- `bus_tenant_event_latency`: the first `TENANT_PROBE_SESSIONS` sessions
+  also set their presence every `PROBE_INTERVAL_SECONDS`, as the app does
+  when the user changes it, and every session times the update event
+  wazo-chatd sends to the whole tenant
+- `bus_tenant_event_sent`: presence updates sent; each one is expected once
+  on every session open
+- `bus_tenant_event_lost`: presence updates the session that sent them is
+  still missing when its next one goes
 
-The session also subscribes to that update event, which the app does not.
+The session also subscribes to the push token update event, which the app
+does not. The presences are put back at the end.
 
 ```sh
 docker run --rm --network host \
@@ -181,6 +190,10 @@ Optional:
 | `SESSIONS_PER_VU`        | `50`                  | sessions each k6 VU holds                  |
 | `PROBE_SESSIONS`         | `100`                 | first sessions probing                     |
 | `PROBE_INTERVAL_SECONDS` | `10`                  | time between a session's probes            |
+| `TENANT_PROBE_SESSIONS`  | `2`                   | first sessions setting their presence      |
+
+`CREATE_USERS=true` needs `TENANT_PROBE_SESSIONS=0`: wazo-chatd holds no
+presence for users created in wazo-auth alone.
 
 ## Benchmarks
 

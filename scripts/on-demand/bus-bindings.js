@@ -44,11 +44,21 @@ const holdSeconds = Number(__ENV.HOLD_SECONDS || 120);
 const settleSeconds = Number(__ENV.SETTLE_SECONDS || 60);
 const probeSessions = Math.min(Number(__ENV.PROBE_SESSIONS || 100), sessions);
 const probeIntervalSeconds = Number(__ENV.PROBE_INTERVAL_SECONDS || 10);
+const tenantProbeSessions = Math.min(
+  Number(__ENV.TENANT_PROBE_SESSIONS ?? 2),
+  sessions,
+);
+// wazo-chatd only knows the users wazo-confd has
+if (createUsers && tenantProbeSessions > 0) {
+  throw new Error("CREATE_USERS=true requires TENANT_PROBE_SESSIONS=0");
+}
 const sessionsPerVu = Number(__ENV.SESSIONS_PER_VU || 50);
 
 const CREATED_USER_PREFIX = "load-bindings-";
 const BATCH_SIZE = 50;
 const PROBE_EVENT = "auth_user_external_auth_updated";
+const TENANT_PROBE_EVENT = "chatd_presence_updated";
+const TENANT_PROBE_STATUS_PREFIX = "load-bindings-";
 const subscribedEvents = [
   ...JSON.parse(open("../../assets/mobile-websocket-events.json")),
   PROBE_EVENT,
@@ -62,10 +72,14 @@ const runSeconds = settleSeconds + sessionSeconds;
 const userTokenSeconds = runSeconds + 3600;
 
 const auth = `https://${engine}/api/auth/0.1`;
+const chatd = `https://${engine}/api/chatd/1.0`;
 
 const subscribeDuration = new Trend("ws_subscribe_duration", true);
 const eventLatency = new Trend("bus_event_latency", true);
 const eventLost = new Counter("bus_event_lost");
+const tenantEventLatency = new Trend("bus_tenant_event_latency", true);
+const tenantEventSent = new Counter("bus_tenant_event_sent");
+const tenantEventLost = new Counter("bus_tenant_event_lost");
 
 export const options = {
   insecureSkipTLSVerify: true,
@@ -99,6 +113,7 @@ export const options = {
     // An empty metric passes every other threshold
     "http_reqs{name:probe}": ["count>0"],
     bus_event_lost: ["count==0"],
+    bus_tenant_event_lost: ["count==0"],
     checks: ["rate==1.0"],
     monitor_checks: ["rate==1.0"],
   },
@@ -123,6 +138,10 @@ function username(index) {
 
 function mobileUrl(uuid) {
   return `${auth}/users/${uuid}/external/mobile`;
+}
+
+function presenceUrl(uuid) {
+  return `${chatd}/users/${uuid}/presences`;
 }
 
 function mobileTokenBody(user) {
@@ -223,6 +242,28 @@ function listExternalAuths(user) {
   }
 }
 
+function readPresence(user) {
+  const response = http.get(presenceUrl(user.uuid), jsonParams(user.token));
+  if (response.status !== 200) {
+    throw new Error(
+      `presence of ${user.name}: HTTP ${response.status} ${response.body}`,
+    );
+  }
+  return {
+    state: response.json("state"),
+    status: response.json("status"),
+  };
+}
+
+function restorePresence(user) {
+  const response = http.put(
+    presenceUrl(user.uuid),
+    JSON.stringify(user.presence),
+    jsonParams(user.token),
+  );
+  check(response, { "presence restored": (r) => r.status === 204 });
+}
+
 export function setup() {
   const runStart = Date.now();
   if (createUsers) {
@@ -236,17 +277,22 @@ export function setup() {
   const loggedIn = inBatches(indexes, logIn);
   listExternalAuths(loggedIn[0]);
   inBatches(loggedIn, registerPushTokens);
+  for (const user of loggedIn.slice(0, tenantProbeSessions)) {
+    user.presence = readPresence(user);
+  }
   console.log(
     `${users} mobile users, ${sessions} sessions of ${subscribedEvents.length}` +
       ` events on ${vus} VUs, after ${settleSeconds}s` +
       ` ${sessionsPerStep} more every ${stepSeconds}s,` +
       ` then ${holdSeconds}s;` +
-      ` the first ${probeSessions} probe every ${probeIntervalSeconds}s`,
+      ` the first ${probeSessions} probe every ${probeIntervalSeconds}s,` +
+      ` the first ${tenantProbeSessions} the whole tenant as well`,
   );
   return { runStart, users: loggedIn };
 }
 
 export function teardown({ runStart, users: loggedIn }) {
+  loggedIn.slice(0, tenantProbeSessions).forEach(restorePresence);
   const adminToken = createToken(engine, adminUsername, adminPassword).token;
   if (createUsers) {
     for (const user of loggedIn) {
@@ -280,7 +326,7 @@ function plannedSessions(rampStart) {
   );
 }
 
-function holdSession(user, probing, rampStart) {
+function holdSession(user, { probing, tenantProbing }, rampStart) {
   const sessionEnd = rampStart + sessionSeconds * 1000;
   const ws = new WebSocket(
     `wss://${engine}/api/websocketd/?token=${user.token}&version=2`,
@@ -288,8 +334,9 @@ function holdSession(user, probing, rampStart) {
   let subscribeStart = 0;
   let acknowledged = 0;
   let probeSentAt = null;
-  let firstProbeTimer = null;
-  let probeTimer = null;
+  let tenantProbeSentAt = null;
+  const timeouts = [];
+  const intervals = [];
   let closing = false;
 
   // Re-sending its push token, as the app does on refresh: wazo-auth emits
@@ -306,6 +353,52 @@ function holdSession(user, probing, rampStart) {
       { ...jsonParams(user.token), tags: { name: "probe" } },
     );
     check(response, { "probe sent": (r) => r.status === 200 });
+  }
+
+  // Setting its presence, as the app does when the user changes it:
+  // wazo-chatd emits the update to every session of the tenant. The status
+  // carries the time it was sent, for the other sessions to time it too
+  async function tenantProbe() {
+    if (tenantProbeSentAt !== null) {
+      tenantEventLost.add(1);
+    }
+    tenantProbeSentAt = Date.now();
+    tenantEventSent.add(1, { sessions: String(plannedSessions(rampStart)) });
+    const response = await http.asyncRequest(
+      "PUT",
+      presenceUrl(user.uuid),
+      JSON.stringify({
+        state: "available",
+        status: `${TENANT_PROBE_STATUS_PREFIX}${tenantProbeSentAt}`,
+      }),
+      { ...jsonParams(user.token), tags: { name: "tenant-probe" } },
+    );
+    check(response, { "tenant probe sent": (r) => r.status === 204 });
+  }
+
+  // spread the probes of the sessions opened together
+  function startProbing(send) {
+    timeouts.push(
+      setTimeout(
+        () => {
+          send();
+          intervals.push(setInterval(send, probeIntervalSeconds * 1000));
+        },
+        Math.random() * probeIntervalSeconds * 1000,
+      ),
+    );
+  }
+
+  function tenantEventReceived(presence, tags) {
+    const status = presence.status || "";
+    if (!status.startsWith(TENANT_PROBE_STATUS_PREFIX)) {
+      return;
+    }
+    const sentAt = Number(status.slice(TENANT_PROBE_STATUS_PREFIX.length));
+    tenantEventLatency.add(Date.now() - sentAt, tags);
+    if (presence.uuid === user.uuid && sentAt === tenantProbeSentAt) {
+      tenantProbeSentAt = null;
+    }
   }
 
   function received(message) {
@@ -329,22 +422,20 @@ function holdSession(user, probing, rampStart) {
           "every event subscribed": (count) =>
             count === subscribedEvents.length,
         });
-        if (!probing) {
-          break;
+        if (probing) {
+          startProbing(probe);
         }
-        // spread the probes of the sessions opened together
-        firstProbeTimer = setTimeout(
-          () => {
-            probe();
-            probeTimer = setInterval(probe, probeIntervalSeconds * 1000);
-          },
-          Math.random() * probeIntervalSeconds * 1000,
-        );
+        if (tenantProbing) {
+          startProbing(tenantProbe);
+        }
         break;
       case "event":
         if (message.data.name === PROBE_EVENT && probeSentAt !== null) {
           eventLatency.add(Date.now() - probeSentAt, tags);
           probeSentAt = null;
+        }
+        if (message.data.name === TENANT_PROBE_EVENT) {
+          tenantEventReceived(message.data.data, tags);
         }
         break;
     }
@@ -359,8 +450,8 @@ function holdSession(user, probing, rampStart) {
     console.error(`websocket of ${user.uuid}: ${event.error}`);
   };
   ws.onclose = () => {
-    clearTimeout(firstProbeTimer);
-    clearInterval(probeTimer);
+    timeouts.forEach(clearTimeout);
+    intervals.forEach(clearInterval);
   };
   setTimeout(() => {
     closing = true;
@@ -376,7 +467,15 @@ export default function ({ users: loggedIn }) {
     const opensAt =
       rampStart + Math.floor(index / sessionsPerStep) * stepSeconds * 1000;
     setTimeout(
-      () => holdSession(loggedIn[index], index < probeSessions, rampStart),
+      () =>
+        holdSession(
+          loggedIn[index],
+          {
+            probing: index < probeSessions,
+            tenantProbing: index < tenantProbeSessions,
+          },
+          rampStart,
+        ),
       opensAt - Date.now(),
     );
   }
