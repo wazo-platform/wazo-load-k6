@@ -120,6 +120,81 @@ checks: the dashboards follow it.
 Members listen on host ports, so runs sharing a host need
 `LISTEN_PORT_BASE` ranges that do not overlap.
 
+## Bus bindings load
+
+`scripts/on-demand/bus-bindings.js` loads RabbitMQ with the bindings mobile
+users bring: each user registers a push token, for which wazo-webhookd binds
+the user's push events, and holds a websocket subscribed one event at a
+time to the events the mobile app subscribes to
+(`assets/mobile-websocket-events.json`), for which wazo-websocketd binds
+each event. After `SETTLE_SECONDS`, for the stack to process the push token
+registrations, sessions open in `RAMP_STEPS` equal steps, `STEP_SECONDS`
+apart, then hold `HOLD_SECONDS`.
+
+It reports, per number of sessions open (`sessions` tag):
+
+- `ws_subscribe_duration`: from the session's first subscribe to the
+  acknowledgement of its start, all its bindings created
+- `bus_event_latency`: the first `PROBE_SESSIONS` sessions re-send their
+  push token every `PROBE_INTERVAL_SECONDS`, as the app does on refresh, and
+  time the update event wazo-auth sends back through the bus; the probe rate
+  stays the same while the other sessions open
+- `bus_event_lost`: probe events still missing when the next probe goes
+- `bus_tenant_event_latency`: the first `TENANT_PROBE_SESSIONS` sessions
+  also set their presence every `PROBE_INTERVAL_SECONDS`, as the app does
+  when the user changes it, and every session times the update event
+  wazo-chatd sends to the whole tenant
+- `bus_tenant_event_sent`: presence updates sent; each one is expected once
+  on every session open
+- `bus_tenant_event_lost`: presence updates the session that sent them is
+  still missing when its next one goes
+
+The session also subscribes to the push token update event, which the app
+does not. The presences are put back at the end.
+
+```sh
+docker run --rm --network host \
+  --env WAZO_ENGINE=engine.example.com \
+  --env WAZO_ADMIN_USERNAME=root --env WAZO_ADMIN_PASSWORD=secret \
+  wazoplatform/wazo-load-k6 run /scripts/on-demand/bus-bindings.js
+```
+
+By default it logs in the users
+[wazo-load-tools](https://github.com/wazo-platform/wazo-load-tools)
+provisions. On a stack without them, `CREATE_USERS=true` creates its users in
+`WAZO_TENANT` and deletes them at the end, along with those a stopped run
+left. Either way the push tokens are deleted at the end, so the stack is
+left with the bindings it had.
+
+Required:
+
+| Variable                                     | Meaning                                   |
+| -------------------------------------------- | ----------------------------------------- |
+| `WAZO_ENGINE`                                | engine host                               |
+| `WAZO_ADMIN_USERNAME`, `WAZO_ADMIN_PASSWORD` | admin deleting the push tokens, and users |
+| `WAZO_TENANT`                                | tenant of the users, with `CREATE_USERS`  |
+
+Optional:
+
+| Variable                 | Default               | Meaning                                    |
+| ------------------------ | --------------------- | ------------------------------------------ |
+| `USERS`                  | `5000`                | users registering a push token             |
+| `SESSIONS`               | `USERS`               | those of them holding a websocket          |
+| `USERNAME_TEMPLATE`      | `dev+user{i}@wazo.io` | existing users, `{i}` from 0               |
+| `USER_PASSWORD`          | `secret`              | their password, or the created users' one  |
+| `CREATE_USERS`           | `false`               | `true` to create `load-bindings-{i}` users |
+| `SETTLE_SECONDS`         | `60`                  | wait before the first sessions open        |
+| `RAMP_STEPS`             | `10`                  | steps opening the sessions                 |
+| `STEP_SECONDS`           | `60`                  | time between steps                         |
+| `HOLD_SECONDS`           | `120`                 | time with every session open               |
+| `SESSIONS_PER_VU`        | `50`                  | sessions each k6 VU holds                  |
+| `PROBE_SESSIONS`         | `100`                 | first sessions probing                     |
+| `PROBE_INTERVAL_SECONDS` | `10`                  | time between a session's probes            |
+| `TENANT_PROBE_SESSIONS`  | `2`                   | first sessions setting their presence      |
+
+`CREATE_USERS=true` needs `TENANT_PROBE_SESSIONS=0`: wazo-chatd holds no
+presence for users created in wazo-auth alone.
+
 ## Benchmarks
 
 Short benchmarks, a script each, that fail the run when slower than their

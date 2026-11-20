@@ -4,15 +4,30 @@
 import encoding from "k6/encoding";
 import http from "k6/http";
 
-export function createToken(engine, username, password) {
+// A request for http.batch
+export function tokenRequest(engine, username, password, expiration = 600) {
   const credentials = encoding.b64encode(`${username}:${password}`);
-  const body = JSON.stringify({ backend: "wazo_user", expiration: 600 });
-  const response = http.post(`https://${engine}/api/auth/0.1/token`, body, {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Basic ${credentials}`,
+  return [
+    "POST",
+    `https://${engine}/api/auth/0.1/token`,
+    JSON.stringify({ backend: "wazo_user", expiration }),
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${credentials}`,
+      },
     },
-  });
+  ];
+}
+
+export function createToken(engine, username, password, expiration = 600) {
+  const [, url, body, params] = tokenRequest(
+    engine,
+    username,
+    password,
+    expiration,
+  );
+  const response = http.post(url, body, params);
   if (response.status !== 200) {
     throw new Error(`token for ${username}: HTTP ${response.status}`);
   }
