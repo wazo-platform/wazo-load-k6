@@ -15,7 +15,7 @@ if (!engine || !calleeExten || !callerUsername || !callerPassword) {
   );
 }
 
-const talkSeconds = Number(__ENV.TALK_SECONDS || 60);
+export const talkSeconds = Number(__ENV.TALK_SECONDS || 60);
 if (__ENV.CALL_RATE && __ENV.SIMULTANEOUS_CALLS) {
   throw new Error(
     "CALL_RATE and SIMULTANEOUS_CALLS set the same thing, since concurrency" +
@@ -99,11 +99,11 @@ export function registerMember(index) {
   });
 }
 
-export function placeCall() {
+export function placeCall(exten = calleeExten) {
   expectedCalls.add(concurrency);
   const seconds = drawTalkSeconds();
   const result = sip.call({
-    target: `sip:${calleeExten}@${engine}`,
+    target: `sip:${exten}@${engine}`,
     aor: `sip:${callerUsername}@${engine}`,
     username: callerUsername,
     password: callerPassword,
@@ -125,9 +125,7 @@ export function placeCall() {
   });
   sipCalls.add(1, { answered: String(result.success === true) });
   if (!result.success) {
-    console.error(
-      `${callerUsername} -> ${calleeExten} failed: ${result.error}`,
-    );
+    console.error(`${callerUsername} -> ${exten} failed: ${result.error}`);
   }
 }
 
