@@ -1,0 +1,70 @@
+From 8139ab3070d012029d28ff646921263de881f7e2 Mon Sep 17 00:00:00 2001
+From: Francois Blackburn <fblackburn@wazo.io>
+Date: Thu, 17 Sep 2026 12:04:17 -0400
+Subject: [PATCH 2/2] Build against the k6 v2 module path
+
+Why: k6 v2 moved its Go module from go.k6.io/k6 to go.k6.io/k6/v2, so an
+extension still requiring the v1 path can only be linked into a k6 v1 binary.
+The packages used here are unchanged in v2, so the port is the import paths
+and the module requirement.
+---
+ go.mod           | 2 +-
+ k6ext/metrics.go | 2 +-
+ k6ext/module.go  | 2 +-
+ k6ext/sip.go     | 4 ++--
+ 4 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/go.mod b/go.mod
+index 7ea6fe6..7f38ba4 100644
+--- a/go.mod
++++ b/go.mod
+@@ -10,7 +10,7 @@ require (
+ 	github.com/pion/rtp v1.8.7
+ 	github.com/prometheus/client_golang v1.23.2
+ 	github.com/zaf/g711 v1.4.0
+-	go.k6.io/k6 v1.7.1
++	go.k6.io/k6/v2 v2.2.0
+ )
+ 
+ require (
+diff --git a/k6ext/metrics.go b/k6ext/metrics.go
+index 30356f5..74dadfa 100644
+--- a/k6ext/metrics.go
++++ b/k6ext/metrics.go
+@@ -3,7 +3,7 @@ package k6ext
+ import (
+ 	"time"
+ 
+-	"go.k6.io/k6/metrics"
++	"go.k6.io/k6/v2/metrics"
+ )
+ 
+ // SIPMetrics holds all custom k6 metrics exposed by xk6-sip-media.
+diff --git a/k6ext/module.go b/k6ext/module.go
+index 90598ee..5ce2a8f 100644
+--- a/k6ext/module.go
++++ b/k6ext/module.go
+@@ -8,7 +8,7 @@ import (
+ 	"os"
+ 	"sync"
+ 
+-	"go.k6.io/k6/js/modules"
++	"go.k6.io/k6/v2/js/modules"
+ )
+ 
+ func init() {
+diff --git a/k6ext/sip.go b/k6ext/sip.go
+index a096a90..e6ef64b 100644
+--- a/k6ext/sip.go
++++ b/k6ext/sip.go
+@@ -4,8 +4,8 @@ import (
+ 	"fmt"
+ 	"time"
+ 
+-	"go.k6.io/k6/js/common"
+-	"go.k6.io/k6/metrics"
++	"go.k6.io/k6/v2/js/common"
++	"go.k6.io/k6/v2/metrics"
+ 
+ 	corertp "github.com/srthorat/xk6-sip-media/core/rtp"
+ 	sipcall "github.com/srthorat/xk6-sip-media/sip"
